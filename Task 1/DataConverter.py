@@ -24,6 +24,7 @@ class DataConverter:
             "landscape": True,
             "to_list": True,
             "columns_order": [],
+            "alignment": "left",
             "margins_cm": {
                 "top": 1.5,
                 "bottom": 1.5,
@@ -43,6 +44,17 @@ class DataConverter:
         with open(self.config_path, 'w', encoding='utf-8') as f:
             json.dump(settings, f, indent=4, ensure_ascii=False)
         self.settings = settings
+
+    def _get_alignment(self):
+        align_str = self.settings.get('alignment', 'left').lower()
+        if align_str == 'center':
+            return WD_ALIGN_PARAGRAPH.CENTER
+        elif align_str == 'right':
+            return WD_ALIGN_PARAGRAPH.RIGHT
+        elif align_str == 'justify':
+            return WD_ALIGN_PARAGRAPH.JUSTIFY
+        else:
+            return WD_ALIGN_PARAGRAPH.LEFT
 
     def _calculate_column_widths(self, df, available_width_cm):
         
@@ -131,7 +143,7 @@ class DataConverter:
         # setting titla
         if self.settings['title']:
                 title = doc.add_heading(self.settings['title'], level=0)
-                title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                title.alignment = self._get_alignment()
                 for run in title.runs:
                     run.font.name = self.settings['font_name']
                     run.font.color.rgb = None
@@ -171,7 +183,7 @@ class DataConverter:
             for i, column_name in enumerate(df.columns):
                 hdr_cells[i].text = str(column_name)
                 paragraph = hdr_cells[i].paragraphs[0]
-                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                paragraph.alignment = self._get_alignment()
                 for run in paragraph.runs:
                     run.font.bold = True
 
@@ -180,7 +192,7 @@ class DataConverter:
                 for i, value in enumerate(row):
                     cell = row_cells[i]
                     cell.text = str(value) if pd.notna(value) else ""
-                    cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    cell.paragraphs[0].alignment = self._get_alignment()
 
             # wymuszamy wyliczone szerokości na każdą komórkę z osobna
             # bo były przypadki że każda komórka miała osbie inną szerokość w jednej kolumnie XD
@@ -201,7 +213,7 @@ class DataConverter:
         for section in doc.sections:
             footer = section.footer
             paragraph = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            paragraph.alignment = self._get_alignment()
             
             run = paragraph.add_run("Strona ")
             
@@ -253,6 +265,7 @@ class DataConverter:
                 self._format_paragraph(p_sub)
 
     def _format_paragraph(self, paragraph):
+        paragraph.alignment = self._get_alignment()
         paragraph.paragraph_format.line_spacing = self.settings.get('line_spacing', 1.0)
         for run in paragraph.runs:
             run.font.name = self.settings.get('font_name', 'Times New Roman')

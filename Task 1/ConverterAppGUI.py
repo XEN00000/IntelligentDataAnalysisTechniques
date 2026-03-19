@@ -3,7 +3,8 @@ import os
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QFormLayout, QLineEdit, QPushButton, QSpinBox, QDoubleSpinBox, 
-    QCheckBox, QGroupBox, QFileDialog, QMessageBox, QLabel, QFontComboBox
+    QCheckBox, QGroupBox, QFileDialog, QMessageBox, QLabel, QFontComboBox,
+    QComboBox
 )
 from PySide6.QtCore import Qt
 from DataConverter import DataConverter
@@ -61,6 +62,10 @@ class ConverterAppGUI(QMainWindow):
         self.line_spacing_spin.setRange(0.5, 3.0)
         self.line_spacing_spin.setSingleStep(0.1)
 
+        # wybór justowania
+        self.alignment_combo = QComboBox()
+        self.alignment_combo.addItems(["left", "center", "right", "justify"])
+
         self.columns_order_edit = QLineEdit()
         self.columns_order_edit.setPlaceholderText("np. Imię, Nazwisko, Temat (zostaw puste dla domyślnych)")
 
@@ -68,6 +73,7 @@ class ConverterAppGUI(QMainWindow):
         settings_layout.addRow("Czcionka:", self.font_combo)
         settings_layout.addRow("Rozmiar czcionki:", self.font_size_spin)
         settings_layout.addRow("Interlinia:", self.line_spacing_spin)
+        settings_layout.addRow("Justowanie:", self.alignment_combo)
         settings_layout.addRow("Kolejność kolumn:", self.columns_order_edit)
         settings_layout.addRow("", self.landscape_check)
         settings_layout.addRow("", self.to_list_check)
@@ -143,7 +149,8 @@ class ConverterAppGUI(QMainWindow):
         self.line_spacing_spin.setValue(s.get("line_spacing", 1.0))
         self.landscape_check.setChecked(s.get("landscape", True))
         self.to_list_check.setChecked(s.get("to_list", False))
-        
+        self.alignment_combo.setCurrentText(s.get("alignment", "center"))
+
         cols = s.get("columns_order", [])
         self.columns_order_edit.setText(", ".join(cols))
 
@@ -165,6 +172,7 @@ class ConverterAppGUI(QMainWindow):
             "page_size": "A4", # hardcoded rght now, but can be implemented in GUI
             "landscape": self.landscape_check.isChecked(),
             "to_list": self.to_list_check.isChecked(),
+            "alignment": self.alignment_combo.currentText(),
             "columns_order": columns_order,
             "margins_cm": {
                 "top": self.margin_top.value(),
