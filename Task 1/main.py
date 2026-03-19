@@ -1,4 +1,4 @@
-import ConverterAppGUI
+from ConverterAppGUI import ConverterAppGUI
 from PySide6.QtWidgets import QApplication
 import sys
 

@@ -22,6 +22,7 @@ class DataConverter:
             "font_size": 9,
             "page_size": "A4",
             "landscape": True,
+            "to_list": True,
             "columns_order": [],
             "margins_cm": {
                 "top": 1.5,
@@ -127,65 +128,70 @@ class DataConverter:
         base_page_width = 29.7 if self.settings['landscape'] else 21.0
         MAX_WORD_PAGE_WIDTH = 55.8 
         
-        # calculating szerokości 
-        available_width_for_table = base_page_width - margins_total
-        column_widths, absolute_min_table_width = self._calculate_column_widths(df, available_width_for_table)
-        
-        # jesli słowa wystają za A4 to powiększamy kartkę
-        target_table_width = sum(column_widths)
-        final_page_width = target_table_width + margins_total
-
-        # lock bo Word psuje dokumenty > 55.8 cm
-        if final_page_width > MAX_WORD_PAGE_WIDTH:
-            scale_down = (MAX_WORD_PAGE_WIDTH - margins_total) / target_table_width
-            column_widths = [w * scale_down for w in column_widths]
-            final_page_width = MAX_WORD_PAGE_WIDTH
-
-        # ustawienia kartki
-        self._set_dynamic_page_size(doc, final_page_width)
-
+        # setting titla
         if self.settings['title']:
-            title = doc.add_heading(self.settings['title'], level=0)
-            title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            for run in title.runs:
-                run.font.name = self.settings['font_name']
-                run.font.color.rgb = None
-                run.font.bold = True
+                title = doc.add_heading(self.settings['title'], level=0)
+                title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                for run in title.runs:
+                    run.font.name = self.settings['font_name']
+                    run.font.color.rgb = None
+                    run.font.bold = True
 
-        table = doc.add_table(rows=1, cols=len(df.columns))
-        table.style = 'Table Grid'
-        table.autofit = False
+        # calculating szerokości i flag czy do listy
+        if self.settings['to_list']:
+            self._add_data_as_list(doc, df)
+            final_page_width = base_page_width
+        else:
+            available_width_for_table = base_page_width - margins_total
+            column_widths, absolute_min_table_width = self._calculate_column_widths(df, available_width_for_table)
+            
+            # jesli słowa wystają za A4 to powiększamy kartkę
+            target_table_width = sum(column_widths)
+            final_page_width = target_table_width + margins_total
 
-        # Wymuszanie szerokości na poziomie obiektu kolumny 
-        # bo wrod lubi sobie sam poustawiać aka rozwalić te szerokości
-        for i, width in enumerate(column_widths):
-            table.columns[i].width = Cm(width)
+            # lock bo Word psuje dokumenty > 55.8 cm
+            if final_page_width > MAX_WORD_PAGE_WIDTH:
+                scale_down = (MAX_WORD_PAGE_WIDTH - margins_total) / target_table_width
+                column_widths = [w * scale_down for w in column_widths]
+                final_page_width = MAX_WORD_PAGE_WIDTH
 
-        hdr_cells = table.rows[0].cells
-        for i, column_name in enumerate(df.columns):
-            hdr_cells[i].text = str(column_name)
-            paragraph = hdr_cells[i].paragraphs[0]
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            for run in paragraph.runs:
-                run.font.bold = True
+            # ustawienia kartki
+            self._set_dynamic_page_size(doc, final_page_width)
 
-        for index, row in df.iterrows():
-            row_cells = table.add_row().cells
-            for i, value in enumerate(row):
-                cell = row_cells[i]
-                cell.text = str(value) if pd.notna(value) else ""
-                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            table = doc.add_table(rows=1, cols=len(df.columns))
+            table.style = 'Table Grid'
+            table.autofit = False
 
-        # wymuszamy wyliczone szerokości na każdą komórkę z osobna
-        # bo były przypadki że każda komórka miała osbie inną szerokość w jednej kolumnie XD
-        for row in table.rows:
-            for i, cell in enumerate(row.cells):
-                cell.width = Cm(column_widths[i])
-                for paragraph in cell.paragraphs:
-                    paragraph.paragraph_format.line_spacing = self.settings['line_spacing']
-                    for run in paragraph.runs:
-                        run.font.name = self.settings['font_name']
-                        run.font.size = Pt(self.settings['font_size'])
+            # Wymuszanie szerokości na poziomie obiektu kolumny 
+            # bo wrod lubi sobie sam poustawiać aka rozwalić te szerokości
+            for i, width in enumerate(column_widths):
+                table.columns[i].width = Cm(width)
+
+            hdr_cells = table.rows[0].cells
+            for i, column_name in enumerate(df.columns):
+                hdr_cells[i].text = str(column_name)
+                paragraph = hdr_cells[i].paragraphs[0]
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                for run in paragraph.runs:
+                    run.font.bold = True
+
+            for index, row in df.iterrows():
+                row_cells = table.add_row().cells
+                for i, value in enumerate(row):
+                    cell = row_cells[i]
+                    cell.text = str(value) if pd.notna(value) else ""
+                    cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+            # wymuszamy wyliczone szerokości na każdą komórkę z osobna
+            # bo były przypadki że każda komórka miała osbie inną szerokość w jednej kolumnie XD
+            for row in table.rows:
+                for i, cell in enumerate(row.cells):
+                    cell.width = Cm(column_widths[i])
+                    for paragraph in cell.paragraphs:
+                        paragraph.paragraph_format.line_spacing = self.settings['line_spacing']
+                        for run in paragraph.runs:
+                            run.font.name = self.settings['font_name']
+                            run.font.size = Pt(self.settings['font_size'])
 
         self._add_page_numbers(doc)
         doc.save(output_docx)
@@ -223,3 +229,31 @@ class DataConverter:
             print(f"Pomyślnie przekonwertowano do PDF: {output_pdf}")
         except Exception as e:
             print(f"Błąd podczas konwersji do PDF: {e}")
+
+    
+    def _add_data_as_list(self, doc, df):
+        if df.empty or len(df.columns) == 0:
+            return
+
+        cols = df.columns.tolist()
+        main_col = cols[0]
+        sub_cols = cols[1:]
+
+        for index, row in df.iterrows():
+            # pierwszy główny punkt (piersza kolumna)
+            main_val = str(row[main_col]) if pd.notna(row[main_col]) else ""
+            # Wyświetlamy jako "Nazwa_kolumny: Wartość", ale możesz usunąć nagłówki jeśli wolisz same dane
+            p_main = doc.add_paragraph(f"{main_col}: {main_val}", style='List Bullet')
+            self._format_paragraph(p_main)
+
+            # sublista z pozostałych kolumn
+            for col in sub_cols:
+                sub_val = str(row[col]) if pd.notna(row[col]) else ""
+                p_sub = doc.add_paragraph(f"{col}: {sub_val}", style='List Bullet 2')
+                self._format_paragraph(p_sub)
+
+    def _format_paragraph(self, paragraph):
+        paragraph.paragraph_format.line_spacing = self.settings.get('line_spacing', 1.0)
+        for run in paragraph.runs:
+            run.font.name = self.settings.get('font_name', 'Times New Roman')
+            run.font.size = Pt(self.settings.get('font_size', 9))

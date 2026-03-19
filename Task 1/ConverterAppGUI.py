@@ -55,6 +55,7 @@ class ConverterAppGUI(QMainWindow):
         self.font_size_spin.setRange(5, 72)
         
         self.landscape_check = QCheckBox("Orientacja pozioma")
+        self.to_list_check = QCheckBox("Zapisz dane w liście")
         
         self.line_spacing_spin = QDoubleSpinBox()
         self.line_spacing_spin.setRange(0.5, 3.0)
@@ -69,6 +70,7 @@ class ConverterAppGUI(QMainWindow):
         settings_layout.addRow("Interlinia:", self.line_spacing_spin)
         settings_layout.addRow("Kolejność kolumn:", self.columns_order_edit)
         settings_layout.addRow("", self.landscape_check)
+        settings_layout.addRow("", self.to_list_check)
 
         settings_group.setLayout(settings_layout)
         main_layout.addWidget(settings_group)
@@ -140,6 +142,7 @@ class ConverterAppGUI(QMainWindow):
         self.font_size_spin.setValue(s.get("font_size", 9))
         self.line_spacing_spin.setValue(s.get("line_spacing", 1.0))
         self.landscape_check.setChecked(s.get("landscape", True))
+        self.to_list_check.setChecked(s.get("to_list", False))
         
         cols = s.get("columns_order", [])
         self.columns_order_edit.setText(", ".join(cols))
@@ -161,6 +164,7 @@ class ConverterAppGUI(QMainWindow):
             "font_size": self.font_size_spin.value(),
             "page_size": "A4", # hardcoded rght now, but can be implemented in GUI
             "landscape": self.landscape_check.isChecked(),
+            "to_list": self.to_list_check.isChecked(),
             "columns_order": columns_order,
             "margins_cm": {
                 "top": self.margin_top.value(),
@@ -211,3 +215,5 @@ class ConverterAppGUI(QMainWindow):
             QMessageBox.information(self, "Sukces", f"Utworzono plik PDF:\n{pdf_path}")
         except Exception as e:
             QMessageBox.critical(self, "Błąd krytyczny", f"Wystąpił błąd podczas konwersji PDF:\n{str(e)}")
+
+
