@@ -76,7 +76,7 @@ class DataConverter:
             # sprawdzamy dane w kolumnie
             for item in df[col].astype(str):
                 # neutralizujemy linki przed slice na wordy
-                clean_item = item.replace('-', ' ').replace('/', ' ').replace('_', ' ')
+                clean_item = item.strip().replace('-', ' ').replace('/', ' ').replace('_', ' ')
                 words = clean_item.split()
                 
                 if words:
@@ -127,6 +127,8 @@ class DataConverter:
     def convert_excel_to_docx(self, excel_path, output_docx):
         df = pd.read_excel(excel_path)
         
+        df = df.replace(r'\n|\r', ' ', regex=True)
+
         if self.settings['columns_order']:
             valid_cols = [c for c in self.settings['columns_order'] if c in df.columns]
             df = df[valid_cols]
