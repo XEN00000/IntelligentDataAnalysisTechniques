@@ -1,0 +1,5 @@
+customtkinter>=5.2.2
+SpeechRecognition>=3.10.0
+PyAudio>=0.2.14
+langdetect>=1.0.9
+deep-translator>=1.11.4
