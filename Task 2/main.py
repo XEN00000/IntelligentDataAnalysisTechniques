@@ -6,7 +6,7 @@ from tkinter import filedialog, messagebox
 from langdetect import detect, LangDetectException
 from deep_translator import GoogleTranslator
 
-from recipes_data import RECIPES, KNOWN_INGREDIENTS, SYNONYMS
+from recipe_api import get_recipes_by_ingredients
 
 
 class RecipeApp(ctk.CTk):
@@ -169,13 +169,9 @@ class RecipeApp(ctk.CTk):
             self.ingredients_label.configure(text=", ".join(
                 extracted_ingredients).upper(), text_color="#34d399")
 
-            matched_recipes = []
-            search_set = set(extracted_ingredients)
-
-            for recipe in RECIPES:
-                recipe_set = set(recipe["ingredients"])
-                if search_set.issubset(recipe_set):
-                    matched_recipes.append(recipe)
+            self.update_status("Szukam przepisów online...", "yellow")
+            matched_recipes = get_recipes_by_ingredients(
+                extracted_ingredients, limit=10)
 
             self._display_recipes(matched_recipes)
             self.update_status("Zakończono sukcesem!", "green")
@@ -195,17 +191,21 @@ class RecipeApp(ctk.CTk):
 
     def _extract_ingredients(self, text):
         text_lower = text.lower()
-        found = set()
-
-        for ing in KNOWN_INGREDIENTS:
-            if ing in text_lower:
-                found.add(ing)
 
         words = re.findall(r'\b\w+\b', text_lower)
+
+        stop_words = {
+            "i", "have", "got", "some", "want", "to", "make", "cook", "with",
+            "and", "or", "a", "an", "the", "my", "is", "are", "we", "can",
+            "you", "find", "recipes", "recipe", "food", "need", "there",
+            "in", "fridge", "of", "for", "me", "show", "what", "how", "about",
+            "yes", "no", "please", "little", "bit", "much", "many", "few"
+        }
+
+        found = set()
         for word in words:
-            base_word = SYNONYMS.get(word, word)
-            if base_word in KNOWN_INGREDIENTS:
-                found.add(base_word)
+            if word not in stop_words and len(word) > 2:
+                found.add(word)
 
         return list(found)
 
