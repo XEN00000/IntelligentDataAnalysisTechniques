@@ -6,45 +6,7 @@ from tkinter import filedialog, messagebox
 from langdetect import detect, LangDetectException
 from deep_translator import GoogleTranslator
 
-
-RECIPES = [
-    {"name": "Spaghetti Bolognese", "ingredients": [
-        "makaron", "mięso mielone", "pomidory", "cebula", "czosnek", "oliwa"]},
-    {"name": "Jajecznica na maśle", "ingredients": [
-        "jajka", "masło", "sól", "pieprz"]},
-    {"name": "Sałatka Caprese", "ingredients": [
-        "pomidory", "mozzarella", "bazylia", "oliwa"]},
-    {"name": "Zupa pomidorowa", "ingredients": [
-        "pomidory", "bulion", "śmietana", "makaron", "marchew"]},
-    {"name": "Pancakes (Naleśniki)", "ingredients": [
-        "mąka", "jajka", "mleko", "cukier", "masło", "proszek do pieczenia"]},
-    {"name": "Pizza Margherita", "ingredients": [
-        "mąka", "drożdże", "woda", "sól", "pomidory", "mozzarella", "bazylia"]},
-    {"name": "Kurczak curry", "ingredients": [
-        "kurczak", "mleczko kokosowe", "curry", "cebula", "czosnek", "ryż"]},
-    {"name": "Guacamole", "ingredients": [
-        "awokado", "limonka", "czosnek", "cebula", "kolendra", "sól"]},
-    {"name": "Risotto grzybowe", "ingredients": [
-        "ryż", "grzyby", "bulion", "cebula", "wino", "parmezan", "masło"]}
-]
-
-# Zestaw kanonicznych składników generowany automatycznie
-KNOWN_INGREDIENTS = set(
-    ing for recipe in RECIPES for ing in recipe["ingredients"])
-
-SYNONYMS = {
-    "makaronu": "makaron", "makarony": "makaron",
-    "pomidor": "pomidory", "pomidorów": "pomidory", "pomidorki": "pomidory",
-    "jajko": "jajka", "jaj": "jajka", "jajek": "jajka",
-    "mleka": "mleko",
-    "sera": "ser", "serek": "ser",
-    "kurczaka": "kurczak", "piersi": "kurczak", "mięso z kurczaka": "kurczak",
-    "grzybów": "grzyby", "pieczarki": "grzyby", "pieczarek": "grzyby",
-    "cebulę": "cebula", "cebuli": "cebula",
-    "czosnku": "czosnek",
-    "mąki": "mąka",
-    "ryżu": "ryż"
-}
+from recipes_data import RECIPES, KNOWN_INGREDIENTS, SYNONYMS
 
 
 class RecipeApp(ctk.CTk):
@@ -130,8 +92,6 @@ class RecipeApp(ctk.CTk):
         self.record_btn.configure(state="disabled")
         self.file_btn.configure(state="disabled")
         self.update_status("Nasłuchuję... Mów teraz!", "yellow")
-
-        # w osobnym wątku
         threading.Thread(target=self._record_thread, daemon=True).start()
 
     def _record_thread(self):
@@ -154,7 +114,6 @@ class RecipeApp(ctk.CTk):
             filetypes=[("Audio Files", "*.wav *.aiff *.flac")])
         if not file_path:
             return
-
         self.update_status("Przetwarzam plik...", "yellow")
         threading.Thread(target=self._file_thread, args=(
             file_path,), daemon=True).start()
@@ -171,7 +130,6 @@ class RecipeApp(ctk.CTk):
     def process_audio(self, audio):
         self.update_status("Łączenie z chmurą STT...", "yellow")
         try:
-            # STT
             selected_lang = self.lang_var.get()
             raw_text = self.recognizer.recognize_google(
                 audio, language=selected_lang)
@@ -188,19 +146,17 @@ class RecipeApp(ctk.CTk):
             self.detected_lang_label.configure(
                 text=f"Wykryty język: {lang_name} ({detected_lang})")
 
-            # baza po polsku
             working_text = raw_text
-            if detected_lang != "pl":
-                translator = GoogleTranslator(source='auto', target='pl')
+            if detected_lang != "en":
+                translator = GoogleTranslator(source='auto', target='en')
                 working_text = translator.translate(raw_text)
-                display_text = f"{raw_text}\n\n[Przetłumaczono na PL]: {working_text}"
+                display_text = f"{raw_text}\n\n[Przetłumaczono na EN]: {working_text}"
             else:
                 display_text = raw_text
 
             self.transcript_box.delete("1.0", "end")
             self.transcript_box.insert("1.0", display_text)
 
-            # wykrycie składników i deduplikacja
             extracted_ingredients = self._extract_ingredients(working_text)
 
             if not extracted_ingredients:
@@ -240,6 +196,7 @@ class RecipeApp(ctk.CTk):
     def _extract_ingredients(self, text):
         text_lower = text.lower()
         found = set()
+
         for ing in KNOWN_INGREDIENTS:
             if ing in text_lower:
                 found.add(ing)
