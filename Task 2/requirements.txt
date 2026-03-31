@@ -7,3 +7,4 @@ python-dotenv
 soundfile
 requests
 openai-whisper
+google-generativeai>=0.4.0
