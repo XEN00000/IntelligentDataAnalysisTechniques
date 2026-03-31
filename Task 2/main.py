@@ -32,12 +32,12 @@ class RecipeApp(ctk.CTk):
         ctk.CTkLabel(self.sidebar, text="KONTROLKI AUDIO", font=ctk.CTkFont(
             size=20, weight="bold")).grid(row=0, column=0, padx=20, pady=(20, 10))
 
-        ctk.CTkLabel(self.sidebar, text="Język mówiony (STT):").grid(
-            row=1, column=0, padx=20, pady=(10, 0), sticky="w")
-        self.lang_var = ctk.StringVar(value="pl-PL")
-        self.lang_dropdown = ctk.CTkComboBox(self.sidebar, values=[
-                                             "pl-PL", "en-US", "es-ES", "de-DE"], variable=self.lang_var)
-        self.lang_dropdown.grid(row=2, column=0, padx=20, pady=(0, 20))
+        # ctk.CTkLabel(self.sidebar, text="Język mówiony (STT):").grid(
+        #     row=1, column=0, padx=20, pady=(10, 0), sticky="w")
+        # self.lang_var = ctk.StringVar(value="pl-PL")
+        # self.lang_dropdown = ctk.CTkComboBox(self.sidebar, values=[
+        #                                      "pl-PL", "en-US", "es-ES", "de-DE"], variable=self.lang_var)
+        # self.lang_dropdown.grid(row=2, column=0, padx=20, pady=(0, 20))
 
         self.record_btn = ctk.CTkButton(
             self.sidebar, text="🎤 Nagraj z mikrofonu", command=self.start_recording)
@@ -128,11 +128,9 @@ class RecipeApp(ctk.CTk):
             self.record_btn.configure(state="normal")
 
     def process_audio(self, audio):
-        self.update_status("Łączenie z chmurą STT...", "yellow")
+        self.update_status("Analiza audio (Whisper)...", "yellow")
         try:
-            selected_lang = self.lang_var.get()
-            raw_text = self.recognizer.recognize_google(
-                audio, language=selected_lang)
+            raw_text = self.recognizer.recognize_whisper(audio, model="medium")
 
             self.update_status("Analiza NLP...", "yellow")
 
