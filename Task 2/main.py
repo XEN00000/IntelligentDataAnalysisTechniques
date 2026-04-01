@@ -189,7 +189,10 @@ class RecipeApp(ctk.CTk):
             try:
                 detected_lang = detect(text)
             except LangDetectException:
-                detected_lang = "pl"
+                detected_lang = "nieznany"
+
+            self.transcript_box.insert(
+                "end", f"\n[Wykryty język: {detected_lang.upper()}]")
 
             if detected_lang != "en":
                 translator = GoogleTranslator(source='auto', target='en')
@@ -199,12 +202,7 @@ class RecipeApp(ctk.CTk):
             else:
                 en_text = text
 
-            if "," in en_text:
-                extracted_ingredients = [x.strip().lower()
-                                         for x in en_text.split(",") if x.strip()]
-            else:
-                extracted_ingredients = extract_ingredients_local(
-                    en_text)
+            extracted_ingredients = extract_ingredients_local(en_text)
 
             if not extracted_ingredients:
                 self.ingredients_label.configure(

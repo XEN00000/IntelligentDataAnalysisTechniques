@@ -55,11 +55,11 @@ STOP_WORDS = {
     "everything", "ingredient", "ingredients", "grocery", "groceries", "product", "products",
     "item", "items", "fresh", "old", "new", "bad", "good", "rotten", "expired", "cold",
     "hot", "warm", "frozen", "raw", "hard", "soft", "big", "small", "large", "tasty",
-    "delicious", "yummy", "sweet", "sour", "bitter", "spicy"
+    "delicious", "yummy", "sweet", "sour", "bitter", "spicy", "full", "empty", "filled"
 }
 
 
-def extract_ingredients_local(self, text):
+def extract_ingredients_local(text):
     text_lower = text.lower()
     words = re.findall(r'\b\w+\b', text_lower)
 
