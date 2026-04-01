@@ -1,4 +1,5 @@
 from recipe_api import get_recipes_by_ingredients
+from stop_words import extract_ingredients_local
 import customtkinter as ctk
 import speech_recognition as sr
 import threading
@@ -66,9 +67,24 @@ class RecipeApp(ctk.CTk):
             self.sidebar, text="📁 Wczytaj plik audio", command=self.load_audio_file)
         self.file_btn.grid(row=4, column=0, padx=20, pady=10)
 
+        ctk.CTkLabel(self.sidebar, text="LUB WPISZ RĘCZNIE:", font=ctk.CTkFont(
+            weight="bold")).grid(row=5, column=0, padx=20, pady=(20, 5), sticky="w")
+
+        self.manual_entry = ctk.CTkEntry(
+            self.sidebar, placeholder_text="np. pomidor, jajka...")
+        self.manual_entry.grid(row=6, column=0, padx=20, pady=5, sticky="ew")
+
+        self.send_btn = ctk.CTkButton(
+            self.sidebar, text="Wyślij tekst", command=self.process_manual_text, state="disabled")
+        self.send_btn.grid(row=7, column=0, padx=20, pady=(5, 10))
+
+        # przy każdym naciśnięciu klawisza, sprawdza czy odblokować przycisk
+        self.manual_entry.bind("<KeyRelease>", self.check_manual_input)
+
         self.status_label = ctk.CTkLabel(
             self.sidebar, text="Status: Oczekuję...", text_color="gray")
-        self.status_label.grid(row=5, column=0, padx=20, pady=20, sticky="s")
+        self.status_label.grid(row=8, column=0, padx=20, pady=20, sticky="s")
+        self.sidebar.grid_rowconfigure(9, weight=1)
 
         # --- PANEL GŁÓWNY ---
         self.main_panel = ctk.CTkFrame(self, fg_color="transparent")
@@ -142,6 +158,78 @@ class RecipeApp(ctk.CTk):
     def reset_buttons(self):
         self.record_btn.configure(state="normal")
         self.file_btn.configure(state="normal")
+        self.check_manual_input()
+
+    def check_manual_input(self, event=None):
+        # Jeśli pole nie jest puste - aktywuj przycisk
+        if self.manual_entry.get().strip():
+            self.send_btn.configure(state="normal")
+        else:
+            self.send_btn.configure(state="disabled")
+
+    def process_manual_text(self):
+        text = self.manual_entry.get().strip()
+        if not text:
+            return
+
+        self.update_status("Analiza wpisanego tekstu", "yellow")
+        self.transcript_box.delete("1.0", "end")
+        self.transcript_box.insert("1.0", f"[Wpisano ręcznie]: {text}")
+
+        # Wyłączamy interfejs na czas pracy
+        self.record_btn.configure(state="disabled")
+        self.file_btn.configure(state="disabled")
+        self.send_btn.configure(state="disabled")
+
+        threading.Thread(target=self._manual_thread,
+                         args=(text,), daemon=True).start()
+
+    def _manual_thread(self, text):
+        try:
+            try:
+                detected_lang = detect(text)
+            except LangDetectException:
+                detected_lang = "pl"
+
+            if detected_lang != "en":
+                translator = GoogleTranslator(source='auto', target='en')
+                en_text = translator.translate(text)
+                self.transcript_box.insert(
+                    "end", f"\n[Tłumaczenie]: {en_text}")
+            else:
+                en_text = text
+
+            if "," in en_text:
+                extracted_ingredients = [x.strip().lower()
+                                         for x in en_text.split(",") if x.strip()]
+            else:
+                extracted_ingredients = extract_ingredients_local(
+                    en_text)
+
+            if not extracted_ingredients:
+                self.ingredients_label.configure(
+                    text="Nie rozpoznano składników.", text_color="red")
+                self._display_recipes([])
+                self.update_status("Gotowy", "green")
+                return
+
+            self.ingredients_label.configure(text=", ".join(
+                extracted_ingredients).upper(), text_color="#34d399")
+
+            self.update_status(
+                "Szukam przepisów w Spoonacular API...", "yellow")
+            matched_recipes = get_recipes_by_ingredients(
+                extracted_ingredients, limit=6)
+
+            self._display_recipes(matched_recipes)
+            self.update_status("Zakończono sukcesem!", "green")
+
+            self.manual_entry.delete(0, "end")
+
+        except Exception as e:
+            self.update_status(f"Błąd: {str(e)}", "red")
+        finally:
+            self.reset_buttons()
 
     def process_audio(self, audio):
         engine = self.engine_var.get()
@@ -233,7 +321,7 @@ class RecipeApp(ctk.CTk):
                 self.transcript_box.delete("1.0", "end")
                 self.transcript_box.insert("1.0", display_text)
 
-                extracted_ingredients = self._extract_ingredients_local(
+                extracted_ingredients = extract_ingredients_local(
                     working_text)
 
             if not extracted_ingredients:
@@ -261,24 +349,6 @@ class RecipeApp(ctk.CTk):
             self.update_status(f"Błąd: {str(e)}", "red")
         finally:
             self.reset_buttons()
-
-    def _extract_ingredients_local(self, text):
-        text_lower = text.lower()
-        words = re.findall(r'\b\w+\b', text_lower)
-        stop_words = {
-            "i", "have", "got", "some", "want", "to", "make", "cook", "with",
-            "and", "or", "a", "an", "the", "my", "is", "are", "we", "can",
-            "you", "find", "recipes", "recipe", "food", "need", "there",
-            "in", "fridge", "of", "for", "me", "show", "what", "how", "about",
-            "yes", "no", "please", "little", "bit", "much", "many", "few"
-        }
-
-        found = set()
-        for word in words:
-            if word not in stop_words and len(word) > 2:
-                found.add(word)
-
-        return list(found)
 
     def _display_recipes(self, recipes):
         # Czyszczenie poprzednich wyników
