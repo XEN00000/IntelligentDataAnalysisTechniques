@@ -10,6 +10,10 @@ from langdetect import detect, LangDetectException
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
 
+from PIL import Image
+from io import BytesIO
+import requests
+
 # Importy dla Gemini
 import google.generativeai as genai
 
@@ -20,8 +24,6 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # Konfiguracja Gemini
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-
-# Import funkcji pobierającej przepisy (wymaga klucza podanego w recipe_api.py lub przerobienia by czytał z .env)
 
 
 class RecipeApp(ctk.CTk):
@@ -279,6 +281,7 @@ class RecipeApp(ctk.CTk):
         return list(found)
 
     def _display_recipes(self, recipes):
+        # Czyszczenie poprzednich wyników
         for widget in self.recipes_scroll.winfo_children():
             widget.destroy()
 
@@ -288,18 +291,44 @@ class RecipeApp(ctk.CTk):
             return
 
         for recipe in recipes:
+            # Główna karta przepisu
             card = ctk.CTkFrame(self.recipes_scroll,
                                 fg_color="#1f2937", corner_radius=10)
             card.pack(fill="x", padx=10, pady=5)
 
-            title = ctk.CTkLabel(
-                card, text=f"{recipe['name']}", font=ctk.CTkFont(size=16, weight="bold"))
-            title.pack(anchor="w", padx=15, pady=(10, 0))
+            # Wewnętrzna ramka do układu poziomego (zdjęcie lewo, tekst prawo)
+            content_frame = ctk.CTkFrame(card, fg_color="transparent")
+            content_frame.pack(fill="x", padx=15, pady=15)
+
+            # --- POBIERANIE I WYŚWIETLANIE ZDJĘCIA ---
+            image_url = recipe.get("image_url", "")
+            if image_url:
+                try:
+                    response = requests.get(image_url, timeout=5)
+                    img_data = Image.open(BytesIO(response.content))
+
+                    ctk_img = ctk.CTkImage(
+                        light_image=img_data, dark_image=img_data, size=(120, 90))
+
+                    img_label = ctk.CTkLabel(
+                        content_frame, image=ctk_img, text="")
+                    img_label.image = ctk_img
+                    img_label.pack(side="left", padx=(0, 15))
+                except Exception as e:
+                    print(f"[DEBUG] Nie udało się załadować zdjęcia: {e}")
+
+            # --- RAMKA NA TEKST ---
+            text_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+            text_frame.pack(side="left", fill="both", expand=True)
+
+            title = ctk.CTkLabel(text_frame, text=f"🍲 {recipe['name']}", font=ctk.CTkFont(
+                size=18, weight="bold"))
+            title.pack(anchor="w", pady=(0, 5))
 
             ings = ", ".join(recipe["ingredients"])
             ing_label = ctk.CTkLabel(
-                card, text=f"Składniki: {ings}", text_color="#9ca3af", wraplength=600, justify="left")
-            ing_label.pack(anchor="w", padx=15, pady=(5, 10))
+                text_frame, text=f"Składniki: {ings}", text_color="#9ca3af", wraplength=450, justify="left")
+            ing_label.pack(anchor="w")
 
 
 if __name__ == "__main__":
