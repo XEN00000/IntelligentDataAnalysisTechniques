@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from PIL import Image
 from io import BytesIO
 import requests
+import webbrowser
 
 # Importy dla Gemini
 import google.generativeai as genai
@@ -397,6 +398,20 @@ class RecipeApp(ctk.CTk):
             ing_label = ctk.CTkLabel(
                 text_frame, text=f"Składniki: {ings}", text_color="#9ca3af", wraplength=450, justify="left")
             ing_label.pack(anchor="w")
+
+            safe_name = recipe['name'].replace(' ', '-').lower()
+            recipe_url = f"https://spoonacular.com/recipes/{safe_name}-{recipe['id']}"
+
+            link_btn = ctk.CTkButton(
+                text_frame,
+                text="Otwórz przepis",
+                width=130,
+                height=28,
+                fg_color="#3b82f6",
+                hover_color="#2563eb",
+                command=lambda url=recipe_url: webbrowser.open(url)
+            )
+            link_btn.pack(anchor="w", pady=(10, 5))
 
 
 if __name__ == "__main__":

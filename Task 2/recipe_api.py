@@ -42,6 +42,7 @@ def get_recipes_by_ingredients(ingredients_list, limit=5):
                                 for ing in item.get("missedIngredients", [])]
 
             recipe_obj = {
+                "id": item.get("id"),
                 "name": item.get("title", "Nieznany przepis"),
                 "ingredients": all_ingredients,
                 # tudo: wysweitlac zdj w gui
