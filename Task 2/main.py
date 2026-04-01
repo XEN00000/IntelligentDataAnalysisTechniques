@@ -16,16 +16,10 @@ from io import BytesIO
 import requests
 import webbrowser
 
-# Importy dla Gemini
-import google.generativeai as genai
+from google import genai
 
-# Wczytanie kluczy z pliku .env
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-# Konfiguracja Gemini
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
 
 
 class RecipeApp(ctk.CTk):
@@ -256,14 +250,15 @@ class RecipeApp(ctk.CTk):
                     raise ValueError(
                         "Nagranie jest puste")
 
-                self.update_status(
-                    "Analiza przez Gemini", "yellow")
+                self.update_status("Analiza przez Gemini", "yellow")
 
-                # Wymuszamy typ pliku jako audio/wav
-                uploaded_file = genai.upload_file(
-                    temp_path, mime_type="audio/wav")
+                client = genai.Client(api_key=GEMINI_API_KEY)
 
-                model = genai.GenerativeModel("gemini-2.5-flash")
+                uploaded_file = client.files.upload(
+                    file=temp_path,
+                    config={'mime_type': 'audio/wav'}
+                )
+
                 prompt = """
                 Listen to this audio carefully. The user can speak different languages.
                 Identify any food ingredients mentioned. 
@@ -272,19 +267,22 @@ class RecipeApp(ctk.CTk):
                 Do not add any other words, punctuation, or explanations.
                 """
 
-                response = model.generate_content([prompt, uploaded_file])
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=[uploaded_file, prompt]
+                )
 
                 try:
-                    genai.delete_file(uploaded_file.name)
+                    client.files.delete(name=uploaded_file.name)
                     os.remove(temp_path)
                 except Exception as e:
                     print(
                         f"[DEBUG] Błąd podczas usuwania plików tymczasowych: {e}")
 
-                raw_response = "NONE"
-                if response.candidates and response.candidates[0].content.parts:
-                    raw_response = response.candidates[0].content.parts[0].text.strip(
-                    )
+                try:
+                    raw_response = response.text.strip() if response.text else "NONE"
+                except Exception:
+                    raw_response = "NONE"
 
                 self.transcript_box.delete("1.0", "end")
                 self.transcript_box.insert(
