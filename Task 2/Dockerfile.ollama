@@ -1,0 +1,4 @@
+FROM ollama/ollama:latest
+
+# Zaciągnij model mistral podczas budowania obrazu
+RUN ollama serve & sleep 5 && ollama pull mistral && pkill ollama

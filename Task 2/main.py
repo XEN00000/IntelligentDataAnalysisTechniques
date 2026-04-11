@@ -8,18 +8,19 @@ import os
 import tempfile
 from tkinter import filedialog, messagebox
 from langdetect import detect, LangDetectException
-from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
 
 from PIL import Image
 from io import BytesIO
 import requests
 import webbrowser
+import json
 
 from google import genai
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
 
 class RecipeApp(ctk.CTk):
@@ -31,8 +32,58 @@ class RecipeApp(ctk.CTk):
         ctk.set_default_color_theme("blue")
 
         self.recognizer = sr.Recognizer()
+        self.retry_pending = False
+        self.pending_audio = None
 
         self.build_ui()
+
+    def translate_with_ollama(self, text, source_lang, target_lang="en"):
+        """
+        Tłumaczy tekst za pomocą lokalnego modelu Ollama.
+        :param text: Tekst do tłumaczenia
+        :param source_lang: Kod języka źródłowego
+        :param target_lang: Kod języka docelowego (domyślnie "en")
+        :return: Przełożony tekst
+        """
+        try:
+            prompt = f"Translate this {source_lang} text to {target_lang}: {text}\nReturn ONLY the translated text, nothing else."
+            
+            response = requests.post(
+                f"{OLLAMA_URL}/api/generate",
+                json={
+                    "model": "mistral",
+                    "prompt": prompt,
+                    "stream": False,
+                    "temperature": 0.3
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                translated = result.get("response", "").strip()
+                return translated if translated else text
+            else:
+                raise Exception(f"Ollama error: {response.status_code}")
+                
+        except requests.exceptions.Timeout:
+            raise Exception("Timeout podczas tłumaczenia (Ollama nie odpowiada)")
+        except requests.exceptions.ConnectionError:
+            raise Exception("Nie można połączyć się z Ollama. Upewnij się, że serwer działa na http://localhost:11434")
+        except Exception as e:
+            raise Exception(f"Błąd tłumaczenia: {str(e)}")
+
+    def show_retry_dialog(self, error_message):
+        """
+        Wyświetla dialog z opcją ponownej próby dla błędów sieciowych.
+        :param error_message: Komunikat błędu
+        :return: True jeśli użytkownik chce ponowić, False w przeciwnym razie
+        """
+        response = messagebox.askretrycancel(
+            "Błąd sieciowy",
+            f"{error_message}\n\nChcesz spróbować ponownie?"
+        )
+        return response  # True=retry, False=cancel
 
     def build_ui(self):
         self.grid_columnconfigure(1, weight=1)
@@ -190,10 +241,16 @@ class RecipeApp(ctk.CTk):
                 "end", f"\n[Wykryty język: {detected_lang.upper()}]")
 
             if detected_lang != "en":
-                translator = GoogleTranslator(source='auto', target='en')
-                en_text = translator.translate(text)
-                self.transcript_box.insert(
-                    "end", f"\n[Tłumaczenie]: {en_text}")
+                try:
+                    self.update_status("Tłumaczenie via Ollama...", "yellow")
+                    en_text = self.translate_with_ollama(text, detected_lang, "en")
+                    self.transcript_box.insert(
+                        "end", f"\n[Tłumaczenie Ollama]: {en_text}")
+                except Exception as e:
+                    self.update_status(f"Błąd tłumaczenia: {str(e)}", "red")
+                    en_text = text
+                    self.transcript_box.insert(
+                        "end", f"\n[Błąd tłumaczenia - używam tekstu oryginalnego]: {str(e)}")
             else:
                 en_text = text
 
@@ -227,6 +284,7 @@ class RecipeApp(ctk.CTk):
     def process_audio(self, audio):
         engine = self.engine_var.get()
         extracted_ingredients = []
+        gemini_failed = False
 
         try:
             if engine == "Gemini API (Chmura)":
@@ -252,52 +310,84 @@ class RecipeApp(ctk.CTk):
 
                 self.update_status("Analiza przez Gemini", "yellow")
 
-                client = genai.Client(api_key=GEMINI_API_KEY)
-
-                uploaded_file = client.files.upload(
-                    file=temp_path,
-                    config={'mime_type': 'audio/wav'}
-                )
-
-                prompt = """
-                Listen to this audio carefully. The user can speak different languages.
-                Identify any food ingredients mentioned. 
-                Return ONLY a comma-separated list of these ingredients translated into English (e.g., 'chicken, rice, tomato'). 
-                If you cannot hear any clear food ingredients, return exactly the word: NONE.
-                Do not add any other words, punctuation, or explanations.
-                """
-
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=[uploaded_file, prompt]
-                )
-
                 try:
-                    client.files.delete(name=uploaded_file.name)
-                    os.remove(temp_path)
+                    client = genai.Client(api_key=GEMINI_API_KEY)
+
+                    uploaded_file = client.files.upload(
+                        file=temp_path,
+                        config={'mime_type': 'audio/wav'}
+                    )
+
+                    prompt = """
+                    Listen to this audio carefully. The user can speak different languages.
+                    Identify any food ingredients mentioned. 
+                    Return ONLY a comma-separated list of these ingredients translated into English (e.g., 'chicken, rice, tomato'). 
+                    If you cannot hear any clear food ingredients, return exactly the word: NONE.
+                    Do not add any other words, punctuation, or explanations.
+                    """
+
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=[uploaded_file, prompt]
+                    )
+
+                    try:
+                        client.files.delete(name=uploaded_file.name)
+                        os.remove(temp_path)
+                    except Exception as e:
+                        print(
+                            f"[DEBUG] Błąd podczas usuwania plików tymczasowych: {e}")
+
+                    try:
+                        raw_response = response.text.strip() if response.text else "NONE"
+                    except Exception:
+                        raw_response = "NONE"
+
+                    self.transcript_box.delete("1.0", "end")
+                    self.transcript_box.insert(
+                        "1.0", f"[Wykorzystano Gemini API]\nZwrócono: {raw_response}")
+
+                    if raw_response == "NONE" or not raw_response:
+                        extracted_ingredients = []
+                    else:
+                        extracted_ingredients = [x.strip().lower()
+                                                 for x in raw_response.split(",")]
+
+                except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, 
+                        TimeoutError, ConnectionError) as e:
+                    gemini_failed = True
+                    error_msg = f"Błąd połączenia z Gemini API: {str(e)}"
+                    print(f"[DEBUG] {error_msg}")
+                    
+                    # Fallback na Whisper
+                    if self.show_retry_dialog(error_msg):
+                        self.process_audio(audio)  # Ponów próbę
+                        return
+                    else:
+                        self.update_status("Przełączanie na Whisper...", "yellow")
+                        self.transcript_box.delete("1.0", "end")
+                        self.transcript_box.insert("1.0", "[Gemini API niedostępny - przełączono na Whisper]\n\n")
+
                 except Exception as e:
-                    print(
-                        f"[DEBUG] Błąd podczas usuwania plików tymczasowych: {e}")
-
-                try:
-                    raw_response = response.text.strip() if response.text else "NONE"
-                except Exception:
-                    raw_response = "NONE"
-
-                self.transcript_box.delete("1.0", "end")
-                self.transcript_box.insert(
-                    "1.0", f"[Wykorzystano Gemini API]\nZwrócono: {raw_response}")
-
-                if raw_response == "NONE" or not raw_response:
-                    extracted_ingredients = []
-                else:
-                    extracted_ingredients = [x.strip().lower()
-                                             for x in raw_response.split(",")]
+                    if is_network_error(e):
+                        gemini_failed = True
+                        if self.show_retry_dialog(f"Błąd Gemini API: {str(e)}"):
+                            self.process_audio(audio)  # Ponów próbę
+                            return
+                        else:
+                            self.update_status("Przełączanie na Whisper...", "yellow")
+                            self.transcript_box.delete("1.0", "end")
+                            self.transcript_box.insert("1.0", "[Gemini API niedostępny - przełączono na Whisper]\n\n")
+                            engine = "Whisper (Lokalnie)"  # Przełącz na Whisper
 
             else:
+                # Fallback na Whisper lub bezpośredni wybór Whisper
+                if gemini_failed:
+                    self.transcript_box.insert("end", "\n[Fallback: Whisper]\n")
+                else:
+                    self.update_status(
+                        "Analiza lokalna (Whisper medium)", "yellow")
 
-                self.update_status(
-                    "Analiza lokalna (Whisper medium)", "yellow")
                 raw_text = self.recognizer.recognize_whisper(
                     audio, model="medium")
 
@@ -309,14 +399,22 @@ class RecipeApp(ctk.CTk):
 
                 working_text = raw_text
                 if detected_lang != "en":
-                    translator = GoogleTranslator(source='auto', target='en')
-                    working_text = translator.translate(raw_text)
-                    display_text = f"[Wykryto: {detected_lang}] {raw_text}\n\n[Tłumaczenie]: {working_text}"
+                    try:
+                        self.update_status("Tłumaczenie via Ollama...", "yellow")
+                        working_text = self.translate_with_ollama(raw_text, detected_lang, "en")
+                        display_text = f"[Whisper - Wykryto: {detected_lang}] {raw_text}\n\n[Tłumaczenie Ollama]: {working_text}"
+                    except Exception as e:
+                        self.update_status(f"Błąd tłumaczenia: {str(e)}", "red")
+                        working_text = raw_text
+                        display_text = f"[Whisper - Wykryto: {detected_lang}] {raw_text}\n\n[Błąd tłumaczenia: {str(e)}]"
                 else:
-                    display_text = f"[Wykryto: EN] {raw_text}"
+                    display_text = f"[Whisper - Wykryto: EN] {raw_text}"
 
-                self.transcript_box.delete("1.0", "end")
-                self.transcript_box.insert("1.0", display_text)
+                if gemini_failed:
+                    self.transcript_box.insert("end", display_text)
+                else:
+                    self.transcript_box.delete("1.0", "end")
+                    self.transcript_box.insert("1.0", display_text)
 
                 extracted_ingredients = extract_ingredients_local(
                     working_text)
@@ -343,6 +441,14 @@ class RecipeApp(ctk.CTk):
 
         except Exception as e:
             print(e)
+            # Sprawdzenie czy to błąd sieciowy z Spoonacular
+            if "Connection" in str(e) or "Network" in str(e) or "Timeout" in str(e):
+                error_msg = f"Błąd połączenia z API: {str(e)}"
+                print(f"[DEBUG] {error_msg}")
+                if self.show_retry_dialog(error_msg):
+                    # Rekurencyjne ponowienie
+                    threading.Thread(target=lambda: self.process_audio(audio), daemon=True).start()
+                    return
             self.update_status(f"Błąd: {str(e)}", "red")
         finally:
             self.reset_buttons()
@@ -410,6 +516,15 @@ class RecipeApp(ctk.CTk):
                 command=lambda url=recipe_url: webbrowser.open(url)
             )
             link_btn.pack(anchor="w", pady=(10, 5))
+
+
+def is_network_error(exception):
+    """
+    Sprawdza czy wyjątek jest błędem sieciowym.
+    """
+    error_str = str(exception).lower()
+    network_keywords = ["connection", "timeout", "network", "refused", "unreachable", "404", "500", "503"]
+    return any(keyword in error_str for keyword in network_keywords)
 
 
 if __name__ == "__main__":
