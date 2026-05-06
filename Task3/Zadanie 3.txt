@@ -1,0 +1,24 @@
+Zadanie 3
+Korzystając z narzędzi Tensorflow oraz Keras napisać program do rozpoznawania
+obrazów/obiektów na zdjęciach (używając modelu uczenia maszynowego). Zbiór
+obrazów można wybrać np. z platformy Kaggle.
+Na ocenę 3 należy:
+1. zaprezentować rezultaty uzyskane przy wykorzystaniu jednego z modeli uczenia
+maszynowego,
+2. korzystając z miar jakości ocenić skuteczność modelu klasyfikacji (macierz
+pomyłek, dokładność, precyzja, czułość, F1)
+Na ocenę 4 należy:
+1. zaprezentować rezultaty uzyskane przy wykorzystaniu jednego z modeli uczenia
+maszynowego,
+2. zbadać skuteczność modelu w zależności od wielkości (podziału %) zbioru
+treningowego i testowego
+3. korzystając z miar jakości ocenić skuteczność modelu klasyfikacji (macierz
+pomyłek, dokładność, precyzja, czułość, F1…) ,
+Na ocenę 5:
+1. należy ocenić skuteczność co najmniej 3 różnych modeli (np. ResNet, Inception,
+VGG, MobileNet, EfficientNet lub inne)
+2. dokonać analizy skuteczności modeli dla różnych wielkości (podziału%) zbioru
+uczącego i testowego
+3. korzystając z miar jakości (np. macierz pomyłek, dokładność, precyzja, czułość,
+F1 …) ocenić skuteczność modeli klasyfikacji
+4. zaprezentować krzywą ROC/AUC (z modułu scikit-learn)
