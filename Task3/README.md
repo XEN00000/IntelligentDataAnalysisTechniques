@@ -112,3 +112,12 @@ docker run --rm --gpus all `
 2. **Use 3 transfer-learning backbones** to satisfy the grade-5 requirement and compare architectures with different efficiency/accuracy tradeoffs.
 3. **Evaluate via configurable splits on labeled training data** because the public test set has no ground-truth labels.
 4. **Generate full submission CSV** (including 300k test images) with the best-performing model from evaluation.
+
+
+
+Run with GPU
+
+docker run --rm --gpus all `
+   --mount type=bind,source="${PWD}\data\cifar-10",target=/app/data/cifar-10 `
+   --mount type=bind,source="${PWD}\outputs",target=/app/outputs `
+   task3-image-benchmark
