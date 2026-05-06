@@ -57,6 +57,13 @@ Fast debug run (no final submission):
 python app.py --max-samples 5000 --splits 0.8 --skip-submission
 ```
 
+Show more/less app progress logs:
+
+```powershell
+python app.py --log-level INFO
+python app.py --log-level DEBUG
+```
+
 ## Output files
 
 All outputs are written to `Task3\outputs\`:
@@ -69,6 +76,8 @@ All outputs are written to `Task3\outputs\`:
 
 ## Docker
 
+GPU Docker requires NVIDIA drivers + NVIDIA Container Toolkit installed on host.
+
 Build:
 
 ```powershell
@@ -79,20 +88,22 @@ docker build -t task3-image-benchmark .
 Run with mounted dataset and outputs:
 
 ```powershell
-docker run --rm `
+docker run --rm --gpus all `
   -v "${PWD}\data\cifar-10:/app/data/cifar-10" `
   -v "${PWD}\outputs:/app/outputs" `
   task3-image-benchmark
 ```
 
+The Docker image runs with `--log-level INFO` by default.
+
 Custom example:
 
 ```powershell
-docker run --rm `
+docker run --rm --gpus all `
   -v "${PWD}\data\cifar-10:/app/data/cifar-10" `
   -v "${PWD}\outputs:/app/outputs" `
   task3-image-benchmark `
-  python app.py --splits 0.8 --epochs 3 --max-samples 15000
+  python app.py --splits 0.8 --epochs 3 --max-samples 15000 --log-level INFO
 ```
 
 ## Design decisions

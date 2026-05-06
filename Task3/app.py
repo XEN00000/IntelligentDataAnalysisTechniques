@@ -1,18 +1,6 @@
 from __future__ import annotations
-
-import argparse
-import json
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Callable
-
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import tensorflow as tf
+from sklearn.preprocessing import label_binarize
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
     accuracy_score,
     auc,
@@ -21,8 +9,21 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import label_binarize
+import tensorflow as tf
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+import argparse
+import json
+import logging
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable
+
+import matplotlib
+
+matplotlib.use("Agg")
 
 
 CIFAR10_LABELS = [
@@ -38,6 +39,7 @@ CIFAR10_LABELS = [
     "truck",
 ]
 LABEL_TO_INDEX = {label: index for index, label in enumerate(CIFAR10_LABELS)}
+LOGGER = logging.getLogger("task3")
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,39 @@ MODEL_CONFIGS: dict[str, ModelConfig] = {
 }
 
 
+def configure_logging(level_name: str) -> None:
+    level = getattr(logging, level_name.upper(), None)
+    if not isinstance(level, int):
+        raise ValueError(f"Unsupported log level: {level_name}")
+
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
+
+
+class EpochMetricsLogger(tf.keras.callbacks.Callback):
+    def __init__(self, run_name: str):
+        super().__init__()
+        self.run_name = run_name
+
+    def on_train_begin(self, logs: dict[str, float] | None = None) -> None:
+        epochs = self.params.get("epochs")
+        steps = self.params.get("steps")
+        LOGGER.info(
+            "Training started [%s] (epochs=%s, steps_per_epoch=%s)", self.run_name, epochs, steps)
+
+    def on_epoch_end(self, epoch: int, logs: dict[str, float] | None = None) -> None:
+        metrics = logs or {}
+        metric_parts = [
+            f"{key}={float(value):.4f}" for key, value in metrics.items()]
+        LOGGER.info("Epoch %d finished [%s] %s", epoch +
+                    1, self.run_name, " ".join(metric_parts))
+
+    def on_train_end(self, logs: dict[str, float] | None = None) -> None:
+        LOGGER.info("Training finished [%s]", self.run_name)
+
+
 def parse_csv_list(raw: str) -> list[str]:
     return [item.strip().lower() for item in raw.split(",") if item.strip()]
 
@@ -74,7 +109,8 @@ def parse_split_ratios(raw: str) -> list[float]:
             continue
         ratio = float(stripped)
         if ratio <= 0.0 or ratio >= 1.0:
-            raise ValueError(f"Invalid split value: {ratio}. Use values between 0 and 1.")
+            raise ValueError(
+                f"Invalid split value: {ratio}. Use values between 0 and 1.")
         ratios.append(ratio)
     unique = sorted(set(ratios))
     if not unique:
@@ -89,7 +125,8 @@ def setup_seed(seed: int) -> None:
 
 def resolve_dataset_paths(args: argparse.Namespace) -> tuple[Path, Path, Path, Path | None]:
     data_root = Path(args.data_root)
-    labels_csv = Path(args.labels_file) if args.labels_file else data_root / "trainLabels.csv"
+    labels_csv = Path(
+        args.labels_file) if args.labels_file else data_root / "trainLabels.csv"
     sample_submission = (
         Path(args.submission_template)
         if args.submission_template
@@ -100,7 +137,8 @@ def resolve_dataset_paths(args: argparse.Namespace) -> tuple[Path, Path, Path, P
         train_dir = Path(args.train_dir)
     else:
         train_candidates = [data_root / "train" / "train", data_root / "train"]
-        train_dir = next((path for path in train_candidates if path.exists()), None)
+        train_dir = next(
+            (path for path in train_candidates if path.exists()), None)
         if train_dir is None:
             raise FileNotFoundError(
                 "Training image folder not found. Expected one of: "
@@ -112,7 +150,8 @@ def resolve_dataset_paths(args: argparse.Namespace) -> tuple[Path, Path, Path, P
         test_dir = Path(args.test_dir)
     else:
         test_candidates = [data_root / "test" / "test", data_root / "test"]
-        test_dir = next((path for path in test_candidates if path.exists()), None)
+        test_dir = next(
+            (path for path in test_candidates if path.exists()), None)
         if test_dir is None:
             raise FileNotFoundError(
                 "Test image folder not found. Expected one of: "
@@ -123,6 +162,8 @@ def resolve_dataset_paths(args: argparse.Namespace) -> tuple[Path, Path, Path, P
     if not labels_csv.exists():
         raise FileNotFoundError(f"Labels file not found: {labels_csv}")
     if sample_submission is not None and not sample_submission.exists():
+        LOGGER.warning(
+            "Submission template not found at %s. Will write raw id/label CSV.", sample_submission)
         sample_submission = None
 
     return train_dir, test_dir, labels_csv, sample_submission
@@ -135,12 +176,15 @@ def load_training_frame(
     seed: int,
 ) -> pd.DataFrame:
     labels_df = pd.read_csv(labels_csv)
+    LOGGER.info("Loaded %d label rows from %s", len(labels_df), labels_csv)
     required_cols = {"id", "label"}
     if not required_cols.issubset(labels_df.columns):
-        raise ValueError(f"{labels_csv} must contain columns: {sorted(required_cols)}")
+        raise ValueError(
+            f"{labels_csv} must contain columns: {sorted(required_cols)}")
 
     labels_df = labels_df[["id", "label"]].copy()
-    labels_df["id"] = pd.to_numeric(labels_df["id"], errors="raise").astype(int)
+    labels_df["id"] = pd.to_numeric(
+        labels_df["id"], errors="raise").astype(int)
     labels_df["label"] = labels_df["label"].astype(str).str.strip().str.lower()
     labels_df = labels_df.sort_values("id").reset_index(drop=True)
 
@@ -148,14 +192,17 @@ def load_training_frame(
     if unknown:
         raise ValueError(f"Unknown labels in {labels_csv}: {unknown}")
 
-    labels_df["image_path"] = labels_df["id"].map(lambda image_id: str(train_dir / f"{image_id}.png"))
-    missing = [path for path in labels_df["image_path"] if not Path(path).exists()]
+    labels_df["image_path"] = labels_df["id"].map(
+        lambda image_id: str(train_dir / f"{image_id}.png"))
+    missing = [path for path in labels_df["image_path"]
+               if not Path(path).exists()]
     if missing:
         preview = ", ".join(missing[:5])
         raise FileNotFoundError(
             f"Missing {len(missing)} training images referenced by trainLabels.csv. Examples: {preview}"
         )
 
+    original_count = len(labels_df)
     if max_samples is not None and 0 < max_samples < len(labels_df):
         sampled_idx, _ = train_test_split(
             labels_df.index.to_numpy(),
@@ -163,7 +210,12 @@ def load_training_frame(
             stratify=labels_df["label"].to_numpy(),
             random_state=seed,
         )
-        labels_df = labels_df.loc[sampled_idx].sort_values("id").reset_index(drop=True)
+        labels_df = labels_df.loc[sampled_idx].sort_values(
+            "id").reset_index(drop=True)
+        LOGGER.info("Sampled training rows: %d (from %d)",
+                    len(labels_df), original_count)
+    else:
+        LOGGER.info("Using full training set: %d rows", original_count)
 
     return labels_df
 
@@ -180,11 +232,17 @@ def read_png_as_array(path: Path) -> np.ndarray:
 
 def load_train_arrays(training_frame: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     image_paths = training_frame["image_path"].to_list()
-    labels = training_frame["label"].map(LABEL_TO_INDEX).to_numpy(dtype=np.int32)
+    labels = training_frame["label"].map(
+        LABEL_TO_INDEX).to_numpy(dtype=np.int32)
 
     images = np.empty((len(image_paths), 32, 32, 3), dtype=np.uint8)
+    LOGGER.info("Reading %d training images into memory", len(image_paths))
     for idx, image_path in enumerate(image_paths):
         images[idx] = read_png_as_array(Path(image_path))
+        loaded = idx + 1
+        if loaded % 5000 == 0 or loaded == len(image_paths):
+            LOGGER.info("Loaded training images: %d/%d",
+                        loaded, len(image_paths))
 
     return images, labels
 
@@ -199,7 +257,8 @@ def create_dataset(
 ) -> tf.data.Dataset:
     ds = tf.data.Dataset.from_tensor_slices((images, labels))
     if training:
-        ds = ds.shuffle(buffer_size=len(images), seed=seed, reshuffle_each_iteration=True)
+        ds = ds.shuffle(buffer_size=len(images), seed=seed,
+                        reshuffle_each_iteration=True)
 
     def preprocess(image: tf.Tensor, label: tf.Tensor) -> tuple[tf.Tensor, tf.Tensor]:
         resized = tf.image.resize(image, (image_size, image_size))
@@ -245,7 +304,8 @@ def build_model(
     base_model.trainable = False
 
     inputs = tf.keras.Input(shape=(image_size, image_size, 3), name="image")
-    x = tf.keras.layers.Lambda(model_config.preprocess, name="preprocess")(inputs)
+    x = tf.keras.layers.Lambda(
+        model_config.preprocess, name="preprocess")(inputs)
     x = tf.keras.layers.RandomFlip("horizontal")(x)
     x = tf.keras.layers.RandomRotation(0.05)(x)
     x = base_model(x, training=False)
@@ -282,7 +342,8 @@ def save_confusion_matrix_plot(
     for row in range(cm.shape[0]):
         for col in range(cm.shape[1]):
             value = cm[row, col]
-            ax.text(col, row, str(value), ha="center", va="center", color="black", fontsize=8)
+            ax.text(col, row, str(value), ha="center",
+                    va="center", color="black", fontsize=8)
 
     fig.tight_layout()
     fig.savefig(output_path, dpi=180)
@@ -294,7 +355,8 @@ def save_roc_plot(y_true_bin: np.ndarray, y_prob: np.ndarray, title: str, output
     roc_micro_auc = auc(fpr, tpr)
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.plot(fpr, tpr, color="darkorange", lw=2, label=f"Micro-average ROC (AUC={roc_micro_auc:.4f})")
+    ax.plot(fpr, tpr, color="darkorange", lw=2,
+            label=f"Micro-average ROC (AUC={roc_micro_auc:.4f})")
     ax.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
     ax.set_xlabel("False Positive Rate")
     ax.set_ylabel("True Positive Rate")
@@ -337,7 +399,8 @@ def save_prediction_preview(
         true_label = labels[int(y_true[sample_idx])]
         pred_label = labels[int(y_pred[sample_idx])]
         color = "green" if y_true[sample_idx] == y_pred[sample_idx] else "red"
-        axis.set_title(f"T: {true_label}\nP: {pred_label}", color=color, fontsize=9)
+        axis.set_title(f"T: {true_label}\nP: {pred_label}",
+                       color=color, fontsize=9)
         axis.axis("off")
 
     fig.tight_layout()
@@ -374,7 +437,10 @@ def run_experiment(
     models_dir: Path,
 ) -> dict[str, float | str | int]:
     split_tag = experiment_tag(split_ratio)
-    ensure_class_coverage(y=y_test, split_name="test split", expected_classes=len(labels))
+    run_name = f"{model_name}/{split_tag}"
+    LOGGER.info("Starting experiment [%s]", run_name)
+    ensure_class_coverage(y=y_test, split_name="test split",
+                          expected_classes=len(labels))
 
     x_train_fit, x_val, y_train_fit, y_val = train_test_split(
         x_train,
@@ -383,8 +449,10 @@ def run_experiment(
         stratify=y_train,
         random_state=args.seed,
     )
-    ensure_class_coverage(y=y_train_fit, split_name="train split", expected_classes=len(labels))
-    ensure_class_coverage(y=y_val, split_name="validation split", expected_classes=len(labels))
+    ensure_class_coverage(
+        y=y_train_fit, split_name="train split", expected_classes=len(labels))
+    ensure_class_coverage(
+        y=y_val, split_name="validation split", expected_classes=len(labels))
 
     model = build_model(
         model_name=model_name,
@@ -425,7 +493,8 @@ def run_experiment(
             monitor="val_accuracy",
             patience=args.patience,
             restore_best_weights=True,
-        )
+        ),
+        EpochMetricsLogger(run_name=run_name),
     ]
 
     history = model.fit(
@@ -433,9 +502,10 @@ def run_experiment(
         validation_data=val_ds,
         epochs=args.epochs,
         callbacks=callbacks,
-        verbose=2,
+        verbose=0,
     )
 
+    LOGGER.info("Evaluating model [%s] on test split", run_name)
     y_prob = model.predict(test_ds, verbose=0)
     y_pred = np.argmax(y_prob, axis=1)
 
@@ -448,7 +518,8 @@ def run_experiment(
     )
 
     y_true_bin = label_binarize(y_test, classes=np.arange(len(labels)))
-    roc_auc_macro = float(roc_auc_score(y_true_bin, y_prob, average="macro", multi_class="ovr"))
+    roc_auc_macro = float(roc_auc_score(
+        y_true_bin, y_prob, average="macro", multi_class="ovr"))
     roc_auc_micro = save_roc_plot(
         y_true_bin=y_true_bin,
         y_prob=y_prob,
@@ -475,7 +546,17 @@ def run_experiment(
     )
 
     if args.save_models:
-        model.save(models_dir / f"{model_name}_{split_tag}.keras")
+        model_path = models_dir / f"{model_name}_{split_tag}.keras"
+        model.save(model_path)
+        LOGGER.info("Saved model [%s] to %s", run_name, model_path)
+
+    LOGGER.info(
+        "Completed experiment [%s]: acc=%.4f f1=%.4f auc=%.4f",
+        run_name,
+        accuracy,
+        float(f1),
+        roc_auc_macro,
+    )
 
     return {
         "model": model_name,
@@ -497,7 +578,8 @@ def run_experiment(
 def collect_test_paths(test_dir: Path, max_test_images: int | None) -> list[Path]:
     paths = list(test_dir.glob("*.png"))
     if not paths:
-        raise FileNotFoundError(f"No PNG files found in test folder: {test_dir}")
+        raise FileNotFoundError(
+            f"No PNG files found in test folder: {test_dir}")
 
     def sort_key(path: Path) -> tuple[int, int | str]:
         stem = path.stem
@@ -508,6 +590,9 @@ def collect_test_paths(test_dir: Path, max_test_images: int | None) -> list[Path
     paths.sort(key=sort_key)
     if max_test_images is not None and 0 < max_test_images < len(paths):
         paths = paths[:max_test_images]
+        LOGGER.info("Using subset of test images: %d", len(paths))
+    else:
+        LOGGER.info("Collected test images: %d", len(paths))
     return paths
 
 
@@ -518,6 +603,8 @@ def train_best_model_on_full_train(
     labels: np.ndarray,
     args: argparse.Namespace,
 ) -> tf.keras.Model:
+    LOGGER.info(
+        "Training best model on full labeled training data [%s]", model_name)
     x_train_fit, x_val, y_train_fit, y_val = train_test_split(
         images,
         labels,
@@ -525,8 +612,10 @@ def train_best_model_on_full_train(
         stratify=labels,
         random_state=args.seed,
     )
-    ensure_class_coverage(y=y_train_fit, split_name="submission train split", expected_classes=len(CIFAR10_LABELS))
-    ensure_class_coverage(y=y_val, split_name="submission validation split", expected_classes=len(CIFAR10_LABELS))
+    ensure_class_coverage(
+        y=y_train_fit, split_name="submission train split", expected_classes=len(CIFAR10_LABELS))
+    ensure_class_coverage(
+        y=y_val, split_name="submission validation split", expected_classes=len(CIFAR10_LABELS))
 
     model = build_model(
         model_name=model_name,
@@ -559,15 +648,17 @@ def train_best_model_on_full_train(
             monitor="val_accuracy",
             patience=args.patience,
             restore_best_weights=True,
-        )
+        ),
+        EpochMetricsLogger(run_name=f"{model_name}/submission"),
     ]
     model.fit(
         train_ds,
         validation_data=val_ds,
         epochs=args.epochs,
         callbacks=callbacks,
-        verbose=2,
+        verbose=0,
     )
+    LOGGER.info("Finished training best model for submission [%s]", model_name)
     return model
 
 
@@ -579,6 +670,8 @@ def build_submission_csv(
     output_path: Path,
     template_path: Path | None,
 ) -> None:
+    LOGGER.info("Generating predictions for submission (images=%d)",
+                len(test_paths))
     test_ds = create_path_dataset(
         image_paths=test_paths,
         batch_size=args.batch_size,
@@ -597,7 +690,8 @@ def build_submission_csv(
     if template_path is not None:
         template = pd.read_csv(template_path)
         if not {"id", "label"}.issubset(template.columns):
-            raise ValueError(f"{template_path} must contain 'id' and 'label' columns.")
+            raise ValueError(
+                f"{template_path} must contain 'id' and 'label' columns.")
         submission = template[["id"]].merge(prediction_df, how="left", on="id")
         if submission["label"].isna().any():
             missing_count = int(submission["label"].isna().sum())
@@ -609,6 +703,8 @@ def build_submission_csv(
         submission = prediction_df.sort_values("id")
 
     submission.to_csv(output_path, index=False)
+    LOGGER.info("Saved submission CSV to %s (rows=%d)",
+                output_path, len(submission))
 
 
 def parse_args() -> argparse.Namespace:
@@ -623,7 +719,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train-dir", type=str, default=None)
     parser.add_argument("--test-dir", type=str, default=None)
     parser.add_argument("--submission-template", type=str, default=None)
-    parser.add_argument("--submission-file", type=str, default="submission_best.csv")
+    parser.add_argument("--submission-file", type=str,
+                        default="submission_best.csv")
     parser.add_argument("--skip-submission", action="store_true")
     parser.add_argument("--max-test-images", type=int, default=None)
     parser.add_argument(
@@ -643,33 +740,42 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image-size", type=int, default=160)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--patience", type=int, default=2)
-    parser.add_argument("--weights", type=str, choices=["imagenet", "none"], default="imagenet")
+    parser.add_argument("--weights", type=str,
+                        choices=["imagenet", "none"], default="imagenet")
     parser.add_argument("--val-ratio", type=float, default=0.1)
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--preview-samples", type=int, default=16)
     parser.add_argument("--output-dir", type=str, default="outputs")
     parser.add_argument("--save-models", action="store_true")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--log-level", type=str, default="INFO")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    configure_logging(args.log_level)
     setup_seed(args.seed)
 
     model_names = parse_csv_list(args.models)
     if not model_names:
-        raise ValueError("No models selected. Pass at least one value via --models.")
-    invalid_models = [name for name in model_names if name not in MODEL_CONFIGS]
+        raise ValueError(
+            "No models selected. Pass at least one value via --models.")
+    invalid_models = [
+        name for name in model_names if name not in MODEL_CONFIGS]
     if invalid_models:
         allowed = ", ".join(MODEL_CONFIGS.keys())
-        raise ValueError(f"Unknown models: {invalid_models}. Allowed: {allowed}")
+        raise ValueError(
+            f"Unknown models: {invalid_models}. Allowed: {allowed}")
 
     split_ratios = parse_split_ratios(args.splits)
     if args.val_ratio <= 0.0 or args.val_ratio >= 0.5:
         raise ValueError("Validation ratio must be between 0 and 0.5.")
 
-    train_dir, test_dir, labels_csv, sample_submission = resolve_dataset_paths(args)
+    train_dir, test_dir, labels_csv, sample_submission = resolve_dataset_paths(
+        args)
+    LOGGER.info("Dataset resolved: train_dir=%s test_dir=%s labels=%s",
+                train_dir, test_dir, labels_csv)
 
     output_dir = Path(args.output_dir)
     plots_dir = output_dir / "plots"
@@ -679,8 +785,8 @@ def main() -> None:
     if args.save_models:
         models_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Loading training labels from: {labels_csv}")
-    print(f"Loading training images from: {train_dir}")
+    LOGGER.info("Loading training labels from: %s", labels_csv)
+    LOGGER.info("Loading training images from: %s", train_dir)
     training_frame = load_training_frame(
         labels_csv=labels_csv,
         train_dir=train_dir,
@@ -688,6 +794,8 @@ def main() -> None:
         seed=args.seed,
     )
     images, labels = load_train_arrays(training_frame)
+    LOGGER.info("Prepared training arrays: images=%s labels=%s",
+                images.shape, labels.shape)
 
     all_results: list[dict[str, float | str | int]] = []
     for split_ratio in split_ratios:
@@ -698,9 +806,15 @@ def main() -> None:
             stratify=labels,
             random_state=args.seed,
         )
+        LOGGER.info(
+            "Created split train=%.2f test=%.2f (train_samples=%d, test_samples=%d)",
+            split_ratio,
+            1.0 - split_ratio,
+            len(x_train),
+            len(x_test),
+        )
 
         for model_name in model_names:
-            print(f"\n>>> Training {model_name} for split {split_ratio:.2f}/{1.0 - split_ratio:.2f}")
             result = run_experiment(
                 model_name=model_name,
                 config=MODEL_CONFIGS[model_name],
@@ -715,10 +829,6 @@ def main() -> None:
                 models_dir=models_dir,
             )
             all_results.append(result)
-            print(
-                f"Result: acc={result['accuracy']:.4f} "
-                f"f1={result['macro_f1']:.4f} auc={result['roc_auc_macro_ovr']:.4f}"
-            )
 
     results_df = pd.DataFrame(all_results).sort_values(
         by=["split_train_ratio", "macro_f1", "accuracy"],
@@ -727,40 +837,50 @@ def main() -> None:
     summary_csv = output_dir / "summary.csv"
     summary_json = output_dir / "summary.json"
     results_df.to_csv(summary_csv, index=False)
-    summary_json.write_text(results_df.to_json(orient="records", indent=2), encoding="utf-8")
+    summary_json.write_text(results_df.to_json(
+        orient="records", indent=2), encoding="utf-8")
 
     best_by_split = (
-        results_df.sort_values(by=["split_train_ratio", "macro_f1"], ascending=[True, False])
+        results_df.sort_values(
+            by=["split_train_ratio", "macro_f1"], ascending=[True, False])
         .groupby("split_train_ratio", as_index=False)
         .first()
     )
     best_by_split.to_csv(output_dir / "best_models_by_split.csv", index=False)
 
-    best_overall = results_df.sort_values(by=["macro_f1", "accuracy"], ascending=[False, False]).iloc[0]
+    best_overall = results_df.sort_values(
+        by=["macro_f1", "accuracy"], ascending=[False, False]).iloc[0]
     best_overall_path = output_dir / "best_overall.json"
     best_overall_path.write_text(
         json.dumps(
             best_overall.to_dict(),
             indent=2,
-            default=lambda value: float(value) if isinstance(value, (np.floating, np.integer)) else str(value),
+            default=lambda value: float(value) if isinstance(
+                value, (np.floating, np.integer)) else str(value),
         ),
         encoding="utf-8",
     )
 
-    print("\n=== Best model per split (macro F1) ===")
+    LOGGER.info("Best model per split (macro F1):")
     for _, row in best_by_split.iterrows():
-        print(
-            f"split={row['split_train_ratio']:.2f}/{row['split_test_ratio']:.2f} "
-            f"-> {row['model']} (f1={row['macro_f1']:.4f}, auc={row['roc_auc_macro_ovr']:.4f})"
+        LOGGER.info(
+            "split=%.2f/%.2f -> %s (f1=%.4f, auc=%.4f)",
+            row["split_train_ratio"],
+            row["split_test_ratio"],
+            row["model"],
+            row["macro_f1"],
+            row["roc_auc_macro_ovr"],
         )
-    print(
-        f"\nBest overall: {best_overall['model']} "
-        f"(f1={best_overall['macro_f1']:.4f}, auc={best_overall['roc_auc_macro_ovr']:.4f})"
+    LOGGER.info(
+        "Best overall: %s (f1=%.4f, auc=%.4f)",
+        best_overall["model"],
+        best_overall["macro_f1"],
+        best_overall["roc_auc_macro_ovr"],
     )
 
     if not args.skip_submission:
         best_model_name = str(best_overall["model"])
-        print(f"\nTraining best model for submission: {best_model_name}")
+        LOGGER.info("Training best model for submission: %s", best_model_name)
         best_model = train_best_model_on_full_train(
             model_name=best_model_name,
             config=MODEL_CONFIGS[best_model_name],
@@ -769,8 +889,9 @@ def main() -> None:
             args=args,
         )
 
-        print(f"Loading test images from: {test_dir}")
-        test_paths = collect_test_paths(test_dir=test_dir, max_test_images=args.max_test_images)
+        LOGGER.info("Loading test images from: %s", test_dir)
+        test_paths = collect_test_paths(
+            test_dir=test_dir, max_test_images=args.max_test_images)
         submission_path = output_dir / args.submission_file
         build_submission_csv(
             model=best_model,
@@ -780,9 +901,10 @@ def main() -> None:
             output_path=submission_path,
             template_path=sample_submission,
         )
-        print(f"Submission written to: {submission_path.resolve()} (rows={len(test_paths)})")
+        LOGGER.info("Submission written to: %s (rows=%d)",
+                    submission_path.resolve(), len(test_paths))
 
-    print(f"\nArtifacts written to: {output_dir.resolve()}")
+    LOGGER.info("Artifacts written to: %s", output_dir.resolve())
 
 
 if __name__ == "__main__":

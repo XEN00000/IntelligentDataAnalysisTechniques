@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM tensorflow/tensorflow:2.16.2-gpu
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -9,9 +9,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.docker.txt .
+RUN pip install --no-cache-dir -r requirements.docker.txt
 
 COPY . .
 
-CMD ["python", "app.py"]
+CMD ["python", "app.py", "--log-level", "INFO"]
