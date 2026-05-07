@@ -40,6 +40,22 @@ This default run:
 2. saves metric summaries and plots,
 3. retrains the best model and creates `outputs\submission_best.csv`.
 
+## Code architecture
+
+The app is now split into focused modules under `Task3\task3_app\`:
+
+- `cli.py` - CLI argument parsing and split/model list parsing.
+- `config.py` - model definitions and CIFAR-10 label constants.
+- `logging_utils.py` - logging setup and training epoch callback.
+- `data.py` - dataset path resolution, data loading, and TF dataset builders.
+- `modeling.py` - transfer-learning model construction.
+- `visualization.py` - confusion matrix, ROC, and prediction preview plots.
+- `experiment.py` - training/evaluation experiment flow.
+- `submission.py` - submission CSV generation.
+- `pipeline.py` - top-level orchestration previously contained in `app.py`.
+
+`app.py` remains the entrypoint and now delegates to `task3_app.pipeline.main()`.
+
 ### Useful options
 
 ```powershell
@@ -115,9 +131,13 @@ docker run --rm --gpus all `
 
 
 
-Run with GPU
-
+# Run with GPU
+```powershell
 docker run --rm --gpus all `
    --mount type=bind,source="${PWD}\data\cifar-10",target=/app/data/cifar-10 `
    --mount type=bind,source="${PWD}\outputs",target=/app/outputs `
    task3-image-benchmark
+```
+
+  # Dataset
+  https://www.kaggle.com/competitions/cifar-10/data
