@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from .cli import parse_args, parse_csv_list, parse_split_ratios
+from .cli import parse_args, resolve_cli_choices, validate_numeric_args
 from .config import CIFAR10_LABELS, MODEL_CONFIGS
 from .data import (
     collect_test_paths,
@@ -25,18 +25,9 @@ def main() -> None:
     args = parse_args()
     configure_logging(args.log_level)
     setup_seed(args.seed)
+    validate_numeric_args(args)
 
-    model_names = parse_csv_list(args.models)
-    if not model_names:
-        raise ValueError("No models selected. Pass at least one value via --models.")
-    invalid_models = [name for name in model_names if name not in MODEL_CONFIGS]
-    if invalid_models:
-        allowed = ", ".join(MODEL_CONFIGS.keys())
-        raise ValueError(f"Unknown models: {invalid_models}. Allowed: {allowed}")
-
-    split_ratios = parse_split_ratios(args.splits)
-    if args.val_ratio <= 0.0 or args.val_ratio >= 0.5:
-        raise ValueError("Validation ratio must be between 0 and 0.5.")
+    model_names, split_ratios = resolve_cli_choices(args)
 
     train_dir, test_dir, labels_csv, sample_submission = resolve_dataset_paths(args)
     LOGGER.info("Dataset resolved: train_dir=%s test_dir=%s labels=%s", train_dir, test_dir, labels_csv)

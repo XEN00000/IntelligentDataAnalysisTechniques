@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import random
 from pathlib import Path
 
 import numpy as np
@@ -13,8 +15,12 @@ from .logging_utils import LOGGER
 
 
 def setup_seed(seed: int) -> None:
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    os.environ["TF_DETERMINISTIC_OPS"] = "1"
+    random.seed(seed)
     np.random.seed(seed)
     tf.keras.utils.set_random_seed(seed)
+    tf.config.experimental.enable_op_determinism()
 
 
 def resolve_dataset_paths(args: argparse.Namespace) -> tuple[Path, Path, Path, Path | None]:
@@ -136,6 +142,10 @@ def create_dataset(
     seed: int,
 ) -> tf.data.Dataset:
     ds = tf.data.Dataset.from_tensor_slices((images, labels))
+    options = tf.data.Options()
+    options.experimental_deterministic = True
+    ds = ds.with_options(options)
+
     if training:
         ds = ds.shuffle(buffer_size=len(images), seed=seed, reshuffle_each_iteration=True)
 
@@ -155,6 +165,9 @@ def create_path_dataset(
 ) -> tf.data.Dataset:
     path_values = [str(path) for path in image_paths]
     ds = tf.data.Dataset.from_tensor_slices(path_values)
+    options = tf.data.Options()
+    options.experimental_deterministic = True
+    ds = ds.with_options(options)
 
     def preprocess(path: tf.Tensor) -> tf.Tensor:
         image_bytes = tf.io.read_file(path)

@@ -1,16 +1,14 @@
 # Task 3 - CIFAR-10 benchmark + submission app
 
-This app implements the **grade 5 scope** from `Zadanie 3.txt` on unpacked CIFAR-10 PNG files:
+This app implements the grade-5 scope from `Zadanie 3.txt` on unpacked CIFAR-10 PNG files:
 
-1. compares at least 3 models (`MobileNetV2`, `EfficientNetB0`, `ResNet50`),
+1. compares at least 3 models (`mobilenetv2`, `efficientnetb0`, `resnet50`),
 2. evaluates multiple train/test split ratios,
 3. reports confusion matrix, accuracy, precision, recall, F1,
 4. reports and plots ROC/AUC,
-5. generates a submission file with predictions for all test images.
+5. generates a submission CSV for test images.
 
 ## Expected dataset layout
-
-After unpacking `train.7z` and `test.7z`, the default expected structure is:
 
 ```text
 Task3\data\cifar-10\
@@ -24,39 +22,56 @@ Task3\data\cifar-10\
   ...
 ```
 
-If your folders differ, pass `--train-dir`, `--test-dir`, or `--labels-file`.
+If your layout differs, use `--train-dir`, `--test-dir`, `--labels-file`, and/or `--submission-template`.
 
-## How to run (local)
+## Code architecture
+
+`Task3\task3_app\` is split by responsibility:
+
+- `cli.py` - CLI parsing, validation, and selection helpers.
+- `config.py` - labels and model definitions.
+- `logging_utils.py` - logging setup and training callback.
+- `data.py` - seed setup, dataset path resolution, loading, TF dataset builders.
+- `modeling.py` - transfer-learning model construction.
+- `visualization.py` - confusion matrix, ROC, and preview plots.
+- `experiment.py` - experiment training/evaluation flow.
+- `submission.py` - submission CSV generation.
+- `pipeline.py` - top-level orchestration.
+
+`app.py` is the entrypoint and calls `task3_app.pipeline.main()`.
+
+## Reproducibility (seed)
+
+Use `--seed` to keep dataset sampling/shuffling and train/test splits reproducible across runs:
+
+```powershell
+python app.py --seed 42
+```
+
+The same seed value can be passed in Docker (examples below).
+
+## Python usage
+
+Install:
 
 ```powershell
 cd Task3
 pip install -r requirements.txt
+```
+
+Default run:
+
+```powershell
 python app.py
 ```
 
-This default run:
+Deterministic debug run (fast):
 
-1. trains/evaluates 3 models for split ratios `0.7,0.8,0.85`,
-2. saves metric summaries and plots,
-3. retrains the best model and creates `outputs\submission_best.csv`.
+```powershell
+python app.py --seed 42 --max-samples 5000 --splits 0.8 --skip-submission
+```
 
-## Code architecture
-
-The app is now split into focused modules under `Task3\task3_app\`:
-
-- `cli.py` - CLI argument parsing and split/model list parsing.
-- `config.py` - model definitions and CIFAR-10 label constants.
-- `logging_utils.py` - logging setup and training epoch callback.
-- `data.py` - dataset path resolution, data loading, and TF dataset builders.
-- `modeling.py` - transfer-learning model construction.
-- `visualization.py` - confusion matrix, ROC, and prediction preview plots.
-- `experiment.py` - training/evaluation experiment flow.
-- `submission.py` - submission CSV generation.
-- `pipeline.py` - top-level orchestration previously contained in `app.py`.
-
-`app.py` remains the entrypoint and now delegates to `task3_app.pipeline.main()`.
-
-### Useful options
+Custom full run:
 
 ```powershell
 python app.py `
@@ -64,80 +79,102 @@ python app.py `
   --models "mobilenetv2,efficientnetb0,resnet50" `
   --splits "0.7,0.8,0.85" `
   --epochs 4 `
-  --max-samples 20000
+  --batch-size 64 `
+  --image-size 160 `
+  --learning-rate 0.001 `
+  --patience 2 `
+  --weights imagenet `
+  --val-ratio 0.1 `
+  --seed 42 `
+  --output-dir "outputs"
 ```
 
-Fast debug run (no final submission):
+Show all help text:
 
 ```powershell
-python app.py --max-samples 5000 --splits 0.8 --skip-submission
+python app.py --help
 ```
 
-Show more/less app progress logs:
+## Docker usage (GPU)
 
-```powershell
-python app.py --log-level INFO
-python app.py --log-level DEBUG
-```
+Requirements on host:
 
-## Output files
+- NVIDIA GPU driver,
+- NVIDIA Container Toolkit,
+- Docker with GPU support.
 
-All outputs are written to `Task3\outputs\`:
-
-- `summary.csv`, `summary.json` - all experiments,
-- `best_models_by_split.csv` - best model per split,
-- `best_overall.json` - top model overall,
-- `submission_best.csv` - predicted labels for test images,
-- `plots\` - ROC plots, confusion matrices, and prediction previews.
-
-## Docker
-
-GPU Docker requires NVIDIA drivers + NVIDIA Container Toolkit installed on host.
-
-Build:
+Build image:
 
 ```powershell
 cd Task3
 docker build -t task3-image-benchmark .
 ```
 
-Run with mounted dataset and outputs:
+Default run (uses image CMD: `python app.py --log-level INFO`):
 
 ```powershell
 docker run --rm --gpus all `
-  -v "${PWD}\data\cifar-10:/app/data/cifar-10" `
-  -v "${PWD}\outputs:/app/outputs" `
+  --mount type=bind,source="${PWD}\data\cifar-10",target=/app/data/cifar-10 `
+  --mount type=bind,source="${PWD}\outputs",target=/app/outputs `
   task3-image-benchmark
 ```
 
-The Docker image runs with `--log-level INFO` by default.
-
-Custom example:
+Run with explicit arguments (including seed):
 
 ```powershell
 docker run --rm --gpus all `
-  -v "${PWD}\data\cifar-10:/app/data/cifar-10" `
-  -v "${PWD}\outputs:/app/outputs" `
+  --mount type=bind,source="${PWD}\data\cifar-10",target=/app/data/cifar-10 `
+  --mount type=bind,source="${PWD}\outputs",target=/app/outputs `
   task3-image-benchmark `
-  python app.py --splits 0.8 --epochs 3 --max-samples 15000 --log-level INFO
+  python app.py --seed 42 --splits 0.8 --epochs 3 --max-samples 15000 --log-level INFO
 ```
 
-## Design decisions
+## Every CLI parameter (Python + Docker)
 
-1. **Use unpacked PNG dataset** (`trainLabels.csv` + `train`/`test` folders) so the app matches the provided competition-like data format.
-2. **Use 3 transfer-learning backbones** to satisfy the grade-5 requirement and compare architectures with different efficiency/accuracy tradeoffs.
-3. **Evaluate via configurable splits on labeled training data** because the public test set has no ground-truth labels.
-4. **Generate full submission CSV** (including 300k test images) with the best-performing model from evaluation.
+All parameters are identical for Python and Docker.  
+For Docker, pass them after:
 
-
-
-# Run with GPU
 ```powershell
-docker run --rm --gpus all `
-   --mount type=bind,source="${PWD}\data\cifar-10",target=/app/data/cifar-10 `
-   --mount type=bind,source="${PWD}\outputs",target=/app/outputs `
-   task3-image-benchmark
+task3-image-benchmark python app.py ...
 ```
 
-  # Dataset
-  https://www.kaggle.com/competitions/cifar-10/data
+| Parameter | Default | Purpose | Python example | Docker example |
+|---|---|---|---|---|
+| `--data-root` | `data/cifar-10` | Dataset root folder. | `python app.py --data-root "data/cifar-10"` | `... python app.py --data-root "/app/data/cifar-10"` |
+| `--labels-file` | auto from `data-root` | Path to labels CSV (`id,label`). | `python app.py --labels-file "data/cifar-10/trainLabels.csv"` | `... python app.py --labels-file "/app/data/cifar-10/trainLabels.csv"` |
+| `--train-dir` | auto from `data-root` | Folder with training PNG files. | `python app.py --train-dir "data/cifar-10/train/train"` | `... python app.py --train-dir "/app/data/cifar-10/train/train"` |
+| `--test-dir` | auto from `data-root` | Folder with test PNG files. | `python app.py --test-dir "data/cifar-10/test/test"` | `... python app.py --test-dir "/app/data/cifar-10/test/test"` |
+| `--submission-template` | auto from `data-root` | CSV template (usually `sampleSubmission.csv`). | `python app.py --submission-template "data/cifar-10/sampleSubmission.csv"` | `... python app.py --submission-template "/app/data/cifar-10/sampleSubmission.csv"` |
+| `--submission-file` | `submission_best.csv` | Output filename for predictions. | `python app.py --submission-file "submission_seed42.csv"` | `... python app.py --submission-file "submission_seed42.csv"` |
+| `--skip-submission` | `False` | Skip final submission model training + CSV generation. | `python app.py --skip-submission` | `... python app.py --skip-submission` |
+| `--max-test-images` | all images | Limit test images (debug only). | `python app.py --max-test-images 1000` | `... python app.py --max-test-images 1000` |
+| `--models` | `mobilenetv2,efficientnetb0,resnet50` | Comma-separated model list. | `python app.py --models "mobilenetv2,resnet50"` | `... python app.py --models "mobilenetv2,resnet50"` |
+| `--splits` | `0.7,0.8,0.85` | Comma-separated train ratios. | `python app.py --splits "0.8,0.85"` | `... python app.py --splits "0.8,0.85"` |
+| `--epochs` | `4` | Max training epochs. | `python app.py --epochs 6` | `... python app.py --epochs 6` |
+| `--batch-size` | `64` | Batch size for train/val/test datasets. | `python app.py --batch-size 32` | `... python app.py --batch-size 32` |
+| `--image-size` | `160` | Input resize for model backbone. | `python app.py --image-size 192` | `... python app.py --image-size 192` |
+| `--learning-rate` | `0.001` | Adam learning rate. | `python app.py --learning-rate 0.0005` | `... python app.py --learning-rate 0.0005` |
+| `--patience` | `2` | EarlyStopping patience (`val_accuracy`). | `python app.py --patience 3` | `... python app.py --patience 3` |
+| `--weights` | `imagenet` | Backbone weights: `imagenet` or `none`. | `python app.py --weights none` | `... python app.py --weights none` |
+| `--val-ratio` | `0.1` | Validation ratio from training split. | `python app.py --val-ratio 0.15` | `... python app.py --val-ratio 0.15` |
+| `--max-samples` | all samples | Limit labeled training rows (debug/speed). | `python app.py --max-samples 12000` | `... python app.py --max-samples 12000` |
+| `--preview-samples` | `16` | Number of images in prediction preview plot. | `python app.py --preview-samples 24` | `... python app.py --preview-samples 24` |
+| `--output-dir` | `outputs` | Output folder for metrics, plots, submission. | `python app.py --output-dir "outputs_seed42"` | `... python app.py --output-dir "outputs_seed42"` |
+| `--save-models` | `False` | Save each evaluated model (`.keras`). | `python app.py --save-models` | `... python app.py --save-models` |
+| `--seed` | `42` | Global reproducibility seed. | `python app.py --seed 42` | `... python app.py --seed 42` |
+| `--log-level` | `INFO` | Logging level (`DEBUG/INFO/WARNING/ERROR/CRITICAL`). | `python app.py --log-level DEBUG` | `... python app.py --log-level DEBUG` |
+
+## Output files
+
+All outputs are written to `Task3\outputs\` (or custom `--output-dir`):
+
+- `summary.csv`, `summary.json` - all experiment rows,
+- `best_models_by_split.csv` - best model per split,
+- `best_overall.json` - best model overall,
+- `submission_best.csv` (or custom name) - predicted test labels,
+- `plots\` - ROC curves, confusion matrices, prediction previews,
+- `models\` - optional saved models when `--save-models` is used.
+
+## Dataset source
+
+https://www.kaggle.com/competitions/cifar-10/data
