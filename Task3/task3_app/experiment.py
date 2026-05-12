@@ -158,10 +158,16 @@ def run_experiment(
         seed=args.seed,
     )
 
+    weights_path = models_dir / f"{model_name}_{split_tag}.weights.h5"
+    model.save_weights(weights_path)
+    LOGGER.info("Saved model weights [%s] to %s", run_name, weights_path)
+
+    saved_model_path = ""
     if args.save_models:
         model_path = models_dir / f"{model_name}_{split_tag}.keras"
         model.save(model_path)
         LOGGER.info("Saved model [%s] to %s", run_name, model_path)
+        saved_model_path = str(model_path)
 
     LOGGER.info(
         "Completed experiment [%s]: acc=%.4f f1=%.4f auc=%.4f",
@@ -185,6 +191,8 @@ def run_experiment(
         "macro_f1": float(f1),
         "roc_auc_macro_ovr": roc_auc_macro,
         "roc_auc_micro": roc_auc_micro,
+        "weights_path": str(weights_path),
+        "model_path": saved_model_path,
     }
 
 

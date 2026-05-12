@@ -37,8 +37,7 @@ def main() -> None:
     models_dir = output_dir / "models"
     output_dir.mkdir(parents=True, exist_ok=True)
     plots_dir.mkdir(parents=True, exist_ok=True)
-    if args.save_models:
-        models_dir.mkdir(parents=True, exist_ok=True)
+    models_dir.mkdir(parents=True, exist_ok=True)
 
     LOGGER.info("Loading training labels from: %s", labels_csv)
     LOGGER.info("Loading training images from: %s", train_dir)

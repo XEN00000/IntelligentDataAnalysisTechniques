@@ -160,7 +160,7 @@ task3-image-benchmark python app.py ...
 | `--max-samples` | all samples | Limit labeled training rows (debug/speed). | `python app.py --max-samples 12000` | `... python app.py --max-samples 12000` |
 | `--preview-samples` | `16` | Number of images in prediction preview plot. | `python app.py --preview-samples 24` | `... python app.py --preview-samples 24` |
 | `--output-dir` | `outputs` | Output folder for metrics, plots, submission. | `python app.py --output-dir "outputs_seed42"` | `... python app.py --output-dir "outputs_seed42"` |
-| `--save-models` | `False` | Save each evaluated model (`.keras`). | `python app.py --save-models` | `... python app.py --save-models` |
+| `--save-models` | `False` | Save each evaluated full model (`.keras`) in addition to always-saved weights. | `python app.py --save-models` | `... python app.py --save-models` |
 | `--seed` | `42` | Global reproducibility seed. | `python app.py --seed 42` | `... python app.py --seed 42` |
 | `--log-level` | `INFO` | Logging level (`DEBUG/INFO/WARNING/ERROR/CRITICAL`). | `python app.py --log-level DEBUG` | `... python app.py --log-level DEBUG` |
 
@@ -173,7 +173,7 @@ All outputs are written to `Task3\outputs\` (or custom `--output-dir`):
 - `best_overall.json` - best model overall,
 - `submission_best.csv` (or custom name) - predicted test labels,
 - `plots\` - ROC curves, confusion matrices, prediction previews,
-- `models\` - optional saved models when `--save-models` is used.
+- `models\` - saved model weights for every run (`<model>_trainXX_testYY.weights.h5`) and optional full models (`.keras`) when `--save-models` is used.
 
 ## Dataset source
 
