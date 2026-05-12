@@ -23,7 +23,7 @@ class ExperimentConfig(TypedDict):
 
 CONFIG: ExperimentConfig = {
     "seed": 42,
-    "models": ["mobilenetv2"],
+    "models": ["mobilenetv2", "efficientnetb0", "resnet50"],
     "normal_splits": [0.5, 0.7, 0.8, 0.85],
     "extreme_splits": [0.05, 0.1, 0.2, 0.9, 0.95],
     "epochs": 4,
@@ -84,6 +84,7 @@ def main() -> int:
         command.append("--save-models")
 
     print(f"Uruchamiam eksperyment split-impact z seed={seed}")
+    print(f"Modele: {models}")
     print(f"Splity (normalne + skrajne): {splits_csv}")
     print("Polecenie:", " ".join(command))
     completed = subprocess.run(command, cwd=script_dir, check=False)
