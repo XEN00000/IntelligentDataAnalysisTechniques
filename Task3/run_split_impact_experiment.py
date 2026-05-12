@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 from pathlib import Path
 from typing import TypedDict
 
@@ -19,6 +18,9 @@ class ExperimentConfig(TypedDict):
     weights: str
     val_ratio: float
     save_models: bool
+    docker_image: str
+    docker_gpus: str
+    build_image_before_run: bool
 
 
 CONFIG: ExperimentConfig = {
@@ -34,6 +36,9 @@ CONFIG: ExperimentConfig = {
     "weights": "imagenet",
     "val_ratio": 0.1,
     "save_models": False,
+    "docker_image": "task3-image-benchmark",
+    "docker_gpus": "all",
+    "build_image_before_run": False,
 }
 
 
@@ -44,15 +49,20 @@ def build_splits_csv(config: ExperimentConfig) -> str:
 
 def main() -> int:
     script_dir = Path(__file__).resolve().parent
-    app_path = script_dir / "app.py"
     splits_csv = build_splits_csv(CONFIG)
     seed = CONFIG["seed"]
     models = ",".join(CONFIG["models"])
-    output_dir = f"outputs\\split-impact-seed-{seed}"
+    output_dir = f"/app/outputs/split-impact-seed-{seed}"
+    docker_image = CONFIG["docker_image"]
+    data_dir_host = (script_dir / "data" / "cifar-10").resolve()
+    outputs_dir_host = (script_dir / "outputs").resolve()
+    outputs_dir_host.mkdir(parents=True, exist_ok=True)
 
-    command = [
-        sys.executable,
-        str(app_path),
+    app_args = [
+        "python",
+        "app.py",
+        "--data-root",
+        "/app/data/cifar-10",
         "--models",
         models,
         "--splits",
@@ -81,9 +91,30 @@ def main() -> int:
     ]
 
     if bool(CONFIG["save_models"]):
-        command.append("--save-models")
+        app_args.append("--save-models")
 
-    print(f"Uruchamiam eksperyment split-impact z seed={seed}")
+    if bool(CONFIG["build_image_before_run"]):
+        build_command = ["docker", "build", "-t", docker_image, "."]
+        print("Buduję obraz Docker:", " ".join(build_command))
+        build_completed = subprocess.run(build_command, cwd=script_dir, check=False)
+        if build_completed.returncode != 0:
+            return build_completed.returncode
+
+    command = [
+        "docker",
+        "run",
+        "--rm",
+        "--gpus",
+        CONFIG["docker_gpus"],
+        "--mount",
+        f"type=bind,source={data_dir_host},target=/app/data/cifar-10",
+        "--mount",
+        f"type=bind,source={outputs_dir_host},target=/app/outputs",
+        docker_image,
+        *app_args,
+    ]
+
+    print(f"Uruchamiam eksperyment split-impact w Docker z seed={seed}")
     print(f"Modele: {models}")
     print(f"Splity (normalne + skrajne): {splits_csv}")
     print("Polecenie:", " ".join(command))

@@ -71,7 +71,7 @@ Deterministic debug run (fast):
 python app.py --seed 42 --max-samples 5000 --splits 0.8 --skip-submission
 ```
 
-Python launcher for split-impact experiment (normal + extreme split values, fixed seed):
+Python launcher for split-impact experiment in Docker (normal + extreme split values, fixed seed):
 
 ```powershell
 cd Task3
@@ -84,6 +84,13 @@ Default split set in the script:
 - models: `mobilenetv2, efficientnetb0, resnet50`
 - normal: `0.5, 0.7, 0.8, 0.85`
 - extreme: `0.05, 0.1, 0.2, 0.9, 0.95`
+
+Before first run, build the Docker image:
+
+```powershell
+cd Task3
+docker build -t task3-image-benchmark .
+```
 
 Custom full run:
 
