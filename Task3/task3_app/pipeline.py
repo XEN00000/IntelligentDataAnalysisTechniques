@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import argparse
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -16,9 +18,67 @@ from .data import (
     resolve_dataset_paths,
     setup_seed,
 )
-from .experiment import run_experiment, train_best_model_on_full_train
+from .experiment import (
+    evaluate_trained_model_on_validation,
+    experiment_tag,
+    run_experiment,
+    train_best_model_on_full_train,
+)
 from .logging_utils import LOGGER, configure_logging
 from .submission import build_submission_csv
+
+
+def _infer_evaluation_target_from_filename(model_path: Path) -> tuple[str, float] | None:
+    match = re.match(
+        r"^(?P<model>[a-z0-9]+)_train(?P<train>\d+)_test(?P<test>\d+)(?:\.weights\.h5|\.keras)$",
+        model_path.name.lower(),
+    )
+    if not match:
+        return None
+
+    train_pct = int(match.group("train"))
+    test_pct = int(match.group("test"))
+    if train_pct + test_pct != 100:
+        raise ValueError(
+            f"Cannot infer split ratio from {model_path.name}: train% + test% must equal 100."
+        )
+    return match.group("model"), train_pct / 100.0
+
+
+def _resolve_validation_check_target(args: argparse.Namespace) -> tuple[Path, str, float]:
+    model_path = Path(args.evaluate_model_path).expanduser()
+    if not model_path.exists():
+        raise FileNotFoundError(f"--evaluate-model-path file not found: {model_path}")
+
+    inferred = _infer_evaluation_target_from_filename(model_path)
+    model_name = args.evaluate_model_name
+    split_ratio = args.evaluate_split
+
+    if model_name is None and inferred is not None:
+        model_name = inferred[0]
+    if split_ratio is None and inferred is not None:
+        split_ratio = inferred[1]
+
+    if model_name is None:
+        raise ValueError(
+            "Could not determine model name. Pass --evaluate-model-name or use a file name like "
+            "'resnet50_train90_test10.weights.h5'."
+        )
+    model_name = str(model_name).strip().lower()
+    if model_name not in MODEL_CONFIGS:
+        allowed = ", ".join(MODEL_CONFIGS.keys())
+        raise ValueError(f"Unknown evaluation model: {model_name}. Allowed: {allowed}")
+
+    if split_ratio is None:
+        raise ValueError(
+            "Could not determine split ratio. Pass --evaluate-split or use a file name like "
+            "'resnet50_train90_test10.weights.h5'."
+        )
+    split_ratio = float(split_ratio)
+    if split_ratio <= 0.0 or split_ratio >= 1.0:
+        raise ValueError("--evaluate-split must be between 0 and 1.")
+
+    return model_path, model_name, split_ratio
 
 
 def main() -> None:
@@ -26,8 +86,6 @@ def main() -> None:
     configure_logging(args.log_level)
     setup_seed(args.seed)
     validate_numeric_args(args)
-
-    model_names, split_ratios = resolve_cli_choices(args)
 
     train_dir, test_dir, labels_csv, sample_submission = resolve_dataset_paths(args)
     LOGGER.info("Dataset resolved: train_dir=%s test_dir=%s labels=%s", train_dir, test_dir, labels_csv)
@@ -49,6 +107,30 @@ def main() -> None:
     )
     images, labels = load_train_arrays(training_frame)
     LOGGER.info("Prepared training arrays: images=%s labels=%s", images.shape, labels.shape)
+
+    if args.evaluate_model_path:
+        model_path, model_name, split_ratio = _resolve_validation_check_target(args)
+        validation_result = evaluate_trained_model_on_validation(
+            model_name=model_name,
+            config=MODEL_CONFIGS[model_name],
+            split_ratio=split_ratio,
+            model_path=model_path,
+            images=images,
+            labels=labels,
+            class_labels=CIFAR10_LABELS,
+            args=args,
+            plots_dir=plots_dir,
+        )
+        validation_json = output_dir / f"validation_check_{model_name}_{experiment_tag(split_ratio)}.json"
+        validation_json.write_text(
+            json.dumps(validation_result, indent=2),
+            encoding="utf-8",
+        )
+        LOGGER.info("Validation check result written to: %s", validation_json.resolve())
+        LOGGER.info("Artifacts written to: %s", output_dir.resolve())
+        return
+
+    model_names, split_ratios = resolve_cli_choices(args)
 
     all_results: list[dict[str, float | str | int]] = []
     for split_ratio in split_ratios:

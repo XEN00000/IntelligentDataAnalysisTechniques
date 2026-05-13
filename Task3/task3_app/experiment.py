@@ -196,6 +196,147 @@ def run_experiment(
     }
 
 
+def _load_trained_model_for_validation(
+    model_path: Path,
+    model_name: str,
+    config: ModelConfig,
+    args: argparse.Namespace,
+    num_classes: int,
+) -> tf.keras.Model:
+    if not model_path.exists():
+        raise FileNotFoundError(f"Trained model file not found: {model_path}")
+
+    if model_path.suffix == ".keras":
+        LOGGER.info("Loading full model from: %s", model_path)
+        return tf.keras.models.load_model(model_path)
+
+    if model_path.name.endswith(".weights.h5"):
+        LOGGER.info("Loading model weights from: %s", model_path)
+        model = build_model(
+            model_name=model_name,
+            model_config=config,
+            num_classes=num_classes,
+            image_size=args.image_size,
+            learning_rate=args.learning_rate,
+            weights=args.weights,
+        )
+        model.load_weights(model_path)
+        return model
+
+    raise ValueError(
+        f"Unsupported model file format: {model_path}. "
+        "Use a .keras model or .weights.h5 weights file."
+    )
+
+
+def evaluate_trained_model_on_validation(
+    model_name: str,
+    config: ModelConfig,
+    split_ratio: float,
+    model_path: Path,
+    images: np.ndarray,
+    labels: np.ndarray,
+    class_labels: list[str],
+    args: argparse.Namespace,
+    plots_dir: Path,
+) -> dict[str, float | str | int]:
+    split_tag = experiment_tag(split_ratio)
+    run_name = f"{model_name}/{split_tag}/validation-check"
+    LOGGER.info("Starting validation check [%s]", run_name)
+
+    x_train, _, y_train, _ = train_test_split(
+        images,
+        labels,
+        train_size=split_ratio,
+        stratify=labels,
+        random_state=args.seed,
+    )
+    x_train_fit, x_val, y_train_fit, y_val = train_test_split(
+        x_train,
+        y_train,
+        test_size=args.val_ratio,
+        stratify=y_train,
+        random_state=args.seed,
+    )
+    ensure_class_coverage(
+        y=y_train_fit,
+        split_name="validation-check train split",
+        expected_classes=len(class_labels),
+    )
+    ensure_class_coverage(
+        y=y_val,
+        split_name="validation-check validation split",
+        expected_classes=len(class_labels),
+    )
+
+    model = _load_trained_model_for_validation(
+        model_path=model_path,
+        model_name=model_name,
+        config=config,
+        args=args,
+        num_classes=len(class_labels),
+    )
+    val_ds = create_dataset(
+        images=x_val,
+        labels=y_val,
+        batch_size=args.batch_size,
+        image_size=args.image_size,
+        training=False,
+        seed=args.seed,
+    )
+
+    y_prob = model.predict(val_ds, verbose=0)
+    y_pred = np.argmax(y_prob, axis=1)
+
+    accuracy = float(accuracy_score(y_val, y_pred))
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        y_val,
+        y_pred,
+        average="macro",
+        zero_division=0,
+    )
+
+    y_true_bin = label_binarize(y_val, classes=np.arange(len(class_labels)))
+    roc_auc_macro = float(roc_auc_score(y_true_bin, y_prob, average="macro", multi_class="ovr"))
+    roc_auc_micro = save_roc_plot(
+        y_true_bin=y_true_bin,
+        y_prob=y_prob,
+        title=f"Validation ROC: {model_name} ({split_tag})",
+        output_path=plots_dir / f"roc_validation_{model_name}_{split_tag}.png",
+    )
+
+    cm = confusion_matrix(y_val, y_pred)
+    save_confusion_matrix_plot(
+        cm=cm,
+        labels=class_labels,
+        title=f"Validation confusion matrix: {model_name} ({split_tag})",
+        output_path=plots_dir / f"cm_validation_{model_name}_{split_tag}.png",
+    )
+
+    LOGGER.info(
+        "Completed validation check [%s]: acc=%.4f f1=%.4f auc=%.4f",
+        run_name,
+        accuracy,
+        float(f1),
+        roc_auc_macro,
+    )
+    return {
+        "mode": "validation_check",
+        "model": model_name,
+        "model_path": str(model_path),
+        "split_train_ratio": split_ratio,
+        "split_test_ratio": 1.0 - split_ratio,
+        "train_samples": int(len(x_train_fit)),
+        "validation_samples": int(len(x_val)),
+        "accuracy": accuracy,
+        "macro_precision": float(precision),
+        "macro_recall": float(recall),
+        "macro_f1": float(f1),
+        "roc_auc_macro_ovr": roc_auc_macro,
+        "roc_auc_micro": roc_auc_micro,
+    }
+
+
 def train_best_model_on_full_train(
     model_name: str,
     config: ModelConfig,

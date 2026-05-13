@@ -58,6 +58,11 @@ def validate_numeric_args(args: argparse.Namespace) -> None:
         raise ValueError("--max-test-images must be > 0 when provided.")
     if args.preview_samples < 0:
         raise ValueError("--preview-samples must be >= 0.")
+    if args.evaluate_split is not None and (args.evaluate_split <= 0.0 or args.evaluate_split >= 1.0):
+        raise ValueError("--evaluate-split must be between 0 and 1 when provided.")
+    if args.evaluate_model_name is not None and args.evaluate_model_name.lower() not in MODEL_CONFIGS:
+        allowed = ", ".join(MODEL_CONFIGS.keys())
+        raise ValueError(f"Unknown --evaluate-model-name: {args.evaluate_model_name}. Allowed: {allowed}")
 
 
 def resolve_cli_choices(args: argparse.Namespace) -> tuple[list[str], list[float]]:
@@ -110,6 +115,24 @@ def _add_training_args(parser: argparse.ArgumentParser) -> None:
 def _add_runtime_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--output-dir", type=str, default="outputs")
     parser.add_argument("--save-models", action="store_true")
+    parser.add_argument(
+        "--evaluate-model-path",
+        type=str,
+        default=None,
+        help="Validation-only mode: path to a trained model file (.weights.h5 or .keras).",
+    )
+    parser.add_argument(
+        "--evaluate-model-name",
+        type=str,
+        default=None,
+        help="Model name for --evaluate-model-path when loading weights (.weights.h5).",
+    )
+    parser.add_argument(
+        "--evaluate-split",
+        type=float,
+        default=None,
+        help="Original train split ratio (e.g. 0.9) for reconstructing the validation subset.",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--log-level",

@@ -71,6 +71,21 @@ Deterministic debug run (fast):
 python app.py --seed 42 --max-samples 5000 --splits 0.8 --skip-submission
 ```
 
+Validation check for a trained model (on reconstructed validation split):
+
+```powershell
+python app.py `
+  --evaluate-model-path "outputs\models\resnet50_train90_test10.weights.h5" `
+  --evaluate-model-name resnet50 `
+  --evaluate-split 0.9 `
+  --seed 42 `
+  --val-ratio 0.1 `
+  --weights imagenet `
+  --output-dir "outputs"
+```
+
+If filename follows `<model>_trainXX_testYY.weights.h5` (or `.keras`), model name and split can be inferred.
+
 Python launcher for split-impact experiment in Docker (normal + extreme split values, fixed seed):
 
 ```powershell
@@ -182,6 +197,9 @@ task3-image-benchmark python app.py ...
 | `--preview-samples` | `16` | Number of images in prediction preview plot. | `python app.py --preview-samples 24` | `... python app.py --preview-samples 24` |
 | `--output-dir` | `outputs` | Output folder for metrics, plots, submission. | `python app.py --output-dir "outputs_seed42"` | `... python app.py --output-dir "outputs_seed42"` |
 | `--save-models` | `False` | Save each evaluated full model (`.keras`) in addition to always-saved weights. | `python app.py --save-models` | `... python app.py --save-models` |
+| `--evaluate-model-path` | disabled | Validation-only mode: path to trained `.weights.h5` or `.keras`. | `python app.py --evaluate-model-path "outputs\models\resnet50_train90_test10.weights.h5"` | `... python app.py --evaluate-model-path "/app/outputs/models/resnet50_train90_test10.weights.h5"` |
+| `--evaluate-model-name` | inferred/none | Model name for validation mode (needed when filename has no model tag). | `python app.py --evaluate-model-name resnet50` | `... python app.py --evaluate-model-name resnet50` |
+| `--evaluate-split` | inferred/none | Train split ratio used in the original run (needed when filename has no split tag). | `python app.py --evaluate-split 0.9` | `... python app.py --evaluate-split 0.9` |
 | `--seed` | `42` | Global reproducibility seed. | `python app.py --seed 42` | `... python app.py --seed 42` |
 | `--log-level` | `INFO` | Logging level (`DEBUG/INFO/WARNING/ERROR/CRITICAL`). | `python app.py --log-level DEBUG` | `... python app.py --log-level DEBUG` |
 
@@ -192,8 +210,9 @@ All outputs are written to `Task3\outputs\` (or custom `--output-dir`):
 - `summary.csv`, `summary.json` - all experiment rows,
 - `best_models_by_split.csv` - best model per split,
 - `best_overall.json` - best model overall,
+- `validation_check_<model>_trainXX_testYY.json` - validation-only metrics for a loaded trained model,
 - `submission_best.csv` (or custom name) - predicted test labels,
-- `plots\` - ROC curves, confusion matrices, prediction previews,
+- `plots\` - ROC curves, confusion matrices, prediction previews, and validation-check plots,
 - `models\` - saved model weights for every run (`<model>_trainXX_testYY.weights.h5`) and optional full models (`.keras`) when `--save-models` is used.
 
 ## Dataset source
