@@ -286,9 +286,15 @@ Dla zobrazowania praktycznego działania wyuczonych sieci, na poniższych rysunk
 % ============================================================
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{../../outputs/split-impact-seed-42/plots/predictions_resnet50_train90_test10.png}
+    \includegraphics[width=0.7\textwidth]{../../outputs/split-impact-seed-42/plots/predictions_resnet50_train90_test10_1.png}
+    \label{fig:predictions_resnet_best1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{../../outputs/split-impact-seed-42/plots/predictions_resnet50_train90_test10_2.png}
     \caption{Przykładowa siatka predykcji dla najlepszej konfiguracji modelu \textbf{ResNet50} (wariant train90\_test10).}
-    \label{fig:predictions_resnet_best}
+    \label{fig:predictions_resnet_best2}
 \end{figure}
 
 % ============================================================
@@ -296,7 +302,12 @@ Dla zobrazowania praktycznego działania wyuczonych sieci, na poniższych rysunk
 % ============================================================
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{../../outputs/split-impact-seed-42/plots/predictions_efficientnetb0_train95_test5.png}
+    \includegraphics[width=0.7\textwidth]{../../outputs/split-impact-seed-42/plots/predictions_efficientnetb0_train95_test5_1.png}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{../../outputs/split-impact-seed-42/plots/predictions_efficientnetb0_train95_test5_2.png}
     \caption{Przykładowa siatka predykcji dla najlepszej konfiguracji modelu \textbf{EfficientNetB0} (wariant train95\_test5).}
     \label{fig:predictions_effnet_best}
 \end{figure}
@@ -306,72 +317,126 @@ Dla zobrazowania praktycznego działania wyuczonych sieci, na poniższych rysunk
 % ============================================================
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{../../outputs/split-impact-seed-42/plots/predictions_mobilenetv2_train90_test10.png}
+    \includegraphics[width=0.7\textwidth]{../../outputs/split-impact-seed-42/plots/predictions_mobilenetv2_train90_test10_1.png}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{../../outputs/split-impact-seed-42/plots/predictions_mobilenetv2_train90_test10_2.png}
     \caption{Przykładowa siatka predykcji dla najlepszej konfiguracji modelu \textbf{MobileNetV2} (wariant train90\_test10).}
     \label{fig:predictions_mobilenet_best}
 \end{figure}
 
-\section{Analiza i wnioski}
 
-Najlepsze wyniki osiągnięto dla modelu ResNet50 przy podziale danych 90/10. Poniższa tabela przedstawia porównanie najlepszych (według miar ) osiągnięć dla każdego modelu.
+\section{Walidacja modeli i analiza przeuczenia}
+
+Weryfikacja zdolności uogólniania wiedzy przez badane modele została przeprowadzona na niezależnym zbiorze walidacyjnym. Pozwala to na rzetelną ocenę, czy sieci neuronowe nie uległy zjawisku przeuczenia (ang. \textit{overfitting}) i potrafią poprawnie klasyfikować próbki, z którymi nie miały styczności podczas procesu optymalizacji wag.
+
+\subsection{Analiza wyników na zbiorze walidacyjnym}
+
+W tabeli \ref{tab:validation_overfitting_report} zestawiono szczegółowe wyniki skuteczności (ang. \textit{accuracy}) oraz strat (ang. \textit{loss}) uzyskane przez modele na zbiorach treningowym i walidacyjnym w zależności od wariantu podziału danych. Dodatkowo wyznaczono różnice tych metryk ($\Delta \text{Acc}$ oraz $\Delta \text{Loss}$), które stanowią bezpośredni wskaźnik stopnia dopasowania modelu.
 
 \begin{table}[H]
-\centering
-\caption{Porównanie najlepszych wyników modeli (Peak Performance)}
-\label{tab:results}
-\begin{tabular}{@{}lcccr@{}}
-\toprule
-Model           & F1 (przy 5/95) & Peak F1 & Split Peak & Mean F1 \\ \midrule
-ResNet50        & 0.8423         & 0.8993  & 0.90       & 0.8816  \\
-EfficientNetB0  & 0.7802         & 0.8636  & 0.95       & 0.8396  \\
-MobileNetV2     & 0.7786         & 0.8547  & 0.90       & 0.8341  \\ \bottomrule
-\end{tabular}
+    \centering
+    \caption{Zestawienie wyników na zbiorze walidacyjnym oraz wskaźników przeuczenia modeli}
+    \label{tab:validation_overfitting_report}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{lcccccc}
+        \toprule
+        \textbf{Model i wariant} & \textbf{Train Acc} & \textbf{Val Acc} & $\Delta$ \textbf{Acc} & \textbf{Train Loss} & \textbf{Val Loss} & $\Delta$ \textbf{Loss} \\
+        \midrule
+        \textbf{ResNet50} \\
+        \quad train90\_test10 (Najlepszy) & 0.9634 & 0.8936 & $-0.0698$ & 0.1068 & 0.3524 & $+0.2456$ \\
+        \quad train5\_test95 (Najsłabszy) & 0.9924 & 0.8240 & $-0.1684$ & 0.0336 & 0.5840 & $+0.5504$ \\
+        \midrule
+        \textbf{EfficientNetB0} \\
+        \quad train95\_test5 (Najlepszy) & 0.9392 & 0.8653 & $-0.0739$ & 0.1740 & 0.4287 & $+0.2547$ \\
+        \quad train5\_test95 (Najsłabszy) & 0.9902 & 0.7600 & $-0.2302$ & 0.0333 & 0.8520 & $+0.8187$ \\
+        \midrule
+        \textbf{MobileNetV2} \\
+        \quad train90\_test10 (Najlepszy) & 0.9304 & 0.8540 & $-0.0764$ & 0.2016 & 0.4727 & $+0.2711$ \\
+        \quad train5\_test95 (Najsłabszy) & 0.9889 & 0.7480 & $-0.2409$ & 0.0401 & 0.8687 & $+0.8286$ \\
+        \bottomrule
+    \end{tabular}%
+    }
 \end{table}
 
-\subsection{Wpływ podziału danych}
-Zauważono wyraźną korelację między ilością danych treningowych a jakością modelu. Wszystkie modele wykazują szybki wzrost metryk do punktu 80/20, po którym następuje faza plateau.
-\begin{itemize}
-    \item Przewaga ResNet50 nad pozostałymi modelami jest najbardziej widoczna przy małych zbiorach treningowych (+0.06 F1).
-    \item Przy dużych zbiorach (95/5) różnice maleją do ok. +0.02 F1.
-\end{itemize}
+Analiza danych wskazuje na silną zależność między rozmiarem zbioru treningowego a stabilnością modelu. W przypadkach skrajnych (wariant \texttt{train5\_test95}), wszystkie modele osiągają na zbiorze treningowym skuteczność rzędu 99\%, jednak na zbiorze walidacyjnym wartość ta drastycznie spada (spadek o blisko 24 punkty procentowe dla MobileNetV2 oraz wzrost straty walidacyjnej o ponad $0.8$). Świadczy to o zapamiętaniu specyfiki nielicznych danych treningowych zamiast wyuczenia ogólnych cech klas. 
+
+Z kolei dla optymalnych podziałów (np. ResNet50 w wariancie \texttt{train90\_test10}), spadek skuteczności walidacyjnej wynosi zaledwie $\approx 7\%$, co potwierdza wysoką stabilność i poprawną generalizację.
+
+\subsection{Macierze pomyłek dla zbioru walidacyjnego}
+
+Aby zweryfikować, w jaki sposób rozkładają się błędy predykcji na danych walidacyjnych, wygenerowano odpowiadające im macierze pomyłek. Zgodnie z przyjętą metodyką, na rysunku \ref{fig:validation_cm_combined} zaprezentowano zestawienie dla najlepszego i najsłabszego wariantu sieci ResNet50 oraz optymalnych konfiguracji pozostałych architektur.
 
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=0.8\textwidth]{placeholder_learning_curve.png}
-    \framebox[0.8\textwidth]{\vbox{\vspace{3cm} \centering [WYKRES: F1-Score vs Train Ratio dla 3 modeli] \vspace{3cm}}}
-    \caption{Zależność miary F1 od proporcji zbioru treningowego.}
-\end{figure}
-
-\subsection{Analiza krzywych ROC}
-Modele uzyskały bardzo wysokie wartości AUC (0.975 -- 0.995), co świadczy o doskonałej zdolności separacji klas. 
-
-\begin{figure}[H]
-    \centering
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        %\includegraphics[width=\textwidth]{roc_resnet50_train5_test95.png}
-        \framebox[\textwidth]{\vbox{\vspace{2cm} \centering ROC ResNet50 (5/95) \vspace{2cm}}}
-    \end{minipage}
+    % Górny wiersz: ResNet50 (Najlepszy vs Najgorszy)
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/overfitting-check-seed-42/plots/cm_validation_resnet50_train90_test10.png}
+        \caption{ResNet50 (Najlepszy: train90\_test10)}
+        \label{fig:val_cm_res_best}
+    \end{subfigure}
     \hfill
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        %\includegraphics[width=\textwidth]{roc_resnet50_train90_test10.png}
-        \framebox[\textwidth]{\vbox{\vspace{2cm} \centering ROC ResNet50 (90/10) \vspace{2cm}}}
-    \end{minipage}
-    \caption{Porównanie krzywych ROC dla modelu ResNet50 przy skrajnych podziałach.}
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/overfitting-check-seed-42/plots/cm_validation_resnet50_train5_test95.png}
+        \caption{ResNet50 (Najsłabszy: train5\_test95)}
+        \label{fig:val_cm_res_worst}
+    \end{subfigure}
+    
+    \vspace{0.4cm}
+    % Dolny wiersz: Najlepsze warianty pozostałych modeli
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/overfitting-check-seed-42/plots/cm_validation_efficientnetb0_train95_test5.png}
+        \caption{EfficientNetB0 (Najlepszy: train95\_test5)}
+        \label{fig:val_cm_eff_best}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/overfitting-check-seed-42/plots/cm_validation_mobilenetv2_train90_test10.png}
+        \caption{MobileNetV2 (Najlepszy: train90\_test10)}
+        \label{fig:val_cm_mob_best}
+    \end{subfigure}
+    
+    \caption{Macierze pomyłek uzyskane na zbiorze walidacyjnym dla wybranych konfiguracji badanych modeli.}
+    \label{fig:validation_cm_combined}
 \end{figure}
 
-\section{Porównanie modeli i wnioski}
+\subsection{Krzywe ROC na danych walidacyjnych}
 
-\begin{enumerate}
-    \item \textbf{Globalny Zwycięzca:} Model \textbf{ResNet50} okazał się bezkonkurencyjny, osiągając najwyższe wyniki we wszystkich 9 podziałach danych (Peak $F1=0.899$).
-    \item \textbf{Stabilność:} ResNet50 charakteryzuje się najniższym odchyleniem standardowym wyników, co czyni go najbardziej przewidywalnym modelem w badanym zestawie.
-    \item \textbf{Zdolność separacji:} Bardzo wysokie wartości ROC AUC sugerują, że błędy modelu wynikają głównie z mylenia bardzo podobnych klas, a nie z braku nauki wzorców.
-    \item \textbf{Rekomendacja praktyczna:} 
-    \begin{itemize}
-        \item Dla najwyższej jakości: Wybór \textbf{ResNet50 + split 90/10}.
-        \item Dla bezpiecznej estymacji: Wybór \textbf{splitu 80/20}, który oferuje niemal identyczną jakość przy większym (bardziej wiarygodnym) zbiorze testowym.
-    \end{itemize}
-\end{enumerate}
+Uzupełnieniem oceny walidacyjnej jest analiza zdolności rozdzielczej klasyfikatorów przedstawiona za pomocą krzywych ROC oraz metryki AUC. Rysunek \ref{fig:validation_roc_combined} przedstawia wykresy wyznaczone na próbkach ze zbioru walidacyjnego. Warto zauważyć, że pomimo spadku ogólnej dokładności (Acc) w wariantach z małą ilością danych, pole pod krzywą (ROC AUC) na zbiorze walidacyjnym wciąż utrzymuje się na stosunkowo wysokim poziomie, co sugeruje, że modele zachowują pewną zdolność do rangowania prawdopodobieństw poszczególnych klas.
+
+\begin{figure}[H]
+    \centering
+    % Górny wiersz: ResNet50 (Najlepszy vs Najgorszy)
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/overfitting-check-seed-42/plots/roc_validation_resnet50_train90_test10.png}
+        \caption{ResNet50 (Najlepszy: train90\_test10)}
+        \label{fig:val_roc_res_best}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/overfitting-check-seed-42/plots/roc_validation_resnet50_train5_test95.png}
+        \caption{ResNet50 (Najsłabszy: train5\_test95)}
+        \label{fig:val_roc_res_worst}
+    \end{subfigure}
+    
+    \vspace{0.4cm}
+    % Dolny wiersz: Najlepsze warianty pozostałych modeli
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/overfitting-check-seed-42/plots/roc_validation_efficientnetb0_train95_test5.png}
+        \caption{EfficientNetB0 (Najlepszy: train95\_test5)}
+        \label{fig:val_roc_eff_best}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/overfitting-check-seed-42/plots/roc_validation_mobilenetv2_train90_test10.png}
+        \caption{MobileNetV2 (Najlepszy: train90\_test10)}
+        \label{fig:val_roc_mob_best}
+    \end{subfigure}
+    
+    \caption{Krzywe ROC oraz wartości AUC wyznaczone na zbiorze walidacyjnym dla kluczowych wariantów badanych architektur.}
+    \label{fig:validation_roc_combined}
+\end{figure}
 
 \end{document}

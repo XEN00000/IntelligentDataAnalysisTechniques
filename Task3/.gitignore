@@ -2,3 +2,12 @@ data
 !data/.gitkeep
 # !outputs/split-impact-seed-42/models
 # outputs
+
+*.fls
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
