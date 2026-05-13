@@ -1,4 +1,4 @@
 data
 !data/.gitkeep
-outputs
-!outputs/split-impact-seed-42/models
+# !outputs/split-impact-seed-42/models
+# outputs

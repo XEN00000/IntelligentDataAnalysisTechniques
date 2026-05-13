@@ -1,0 +1,15 @@
+{
+  "mode": "validation_check",
+  "model": "efficientnetb0",
+  "model_path": "/app/outputs/split-impact-seed-42/models/efficientnetb0_train85_test15.weights.h5",
+  "split_train_ratio": 0.85,
+  "split_test_ratio": 0.15000000000000002,
+  "train_samples": 38250,
+  "validation_samples": 4250,
+  "accuracy": 0.8604705882352941,
+  "macro_precision": 0.8659060447927335,
+  "macro_recall": 0.860470588235294,
+  "macro_f1": 0.8594870259076648,
+  "roc_auc_macro_ovr": 0.9909263821607073,
+  "roc_auc_micro": 0.9901325459438678
+}

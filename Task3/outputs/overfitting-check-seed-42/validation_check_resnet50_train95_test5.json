@@ -1,0 +1,15 @@
+{
+  "mode": "validation_check",
+  "model": "resnet50",
+  "model_path": "/app/outputs/split-impact-seed-42/models/resnet50_train95_test5.weights.h5",
+  "split_train_ratio": 0.95,
+  "split_test_ratio": 0.050000000000000044,
+  "train_samples": 42750,
+  "validation_samples": 4750,
+  "accuracy": 0.8981052631578947,
+  "macro_precision": 0.8990163591714108,
+  "macro_recall": 0.8981052631578947,
+  "macro_f1": 0.8977462035439073,
+  "roc_auc_macro_ovr": 0.9938298307171438,
+  "roc_auc_micro": 0.9942038190212372
+}

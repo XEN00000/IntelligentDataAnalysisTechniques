@@ -1,0 +1,15 @@
+{
+  "mode": "validation_check",
+  "model": "mobilenetv2",
+  "model_path": "/app/outputs/split-impact-seed-42/models/mobilenetv2_train5_test95.weights.h5",
+  "split_train_ratio": 0.05,
+  "split_test_ratio": 0.95,
+  "train_samples": 2250,
+  "validation_samples": 250,
+  "accuracy": 0.78,
+  "macro_precision": 0.7949903189734865,
+  "macro_recall": 0.78,
+  "macro_f1": 0.7792891927669546,
+  "roc_auc_macro_ovr": 0.977671111111111,
+  "roc_auc_micro": 0.9775466666666666
+}
