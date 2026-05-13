@@ -107,6 +107,17 @@ cd Task3
 docker build -t task3-image-benchmark .
 ```
 
+Python launcher for overfitting checks in Docker (validation vs test for every model/split from summary):
+
+```powershell
+cd Task3
+python run_overfitting_validation_checks.py
+```
+
+The script reads `outputs\split-impact-seed-42\summary.csv`, runs validation checks for each row via `app.py`,
+and saves merged reports to `outputs\overfitting-check-seed-42\`.
+By default, it rebuilds `task3-image-benchmark` before checks to use the latest `app.py` arguments.
+
 Custom full run:
 
 ```powershell
@@ -211,6 +222,8 @@ All outputs are written to `Task3\outputs\` (or custom `--output-dir`):
 - `best_models_by_split.csv` - best model per split,
 - `best_overall.json` - best model overall,
 - `validation_check_<model>_trainXX_testYY.json` - validation-only metrics for a loaded trained model,
+- `overfitting-check-seed-42\overfitting_validation_report.csv` - merged validation vs test metrics per model/split,
+- `overfitting-check-seed-42\overfitting_validation_report.json` - same overfitting report in JSON,
 - `submission_best.csv` (or custom name) - predicted test labels,
 - `plots\` - ROC curves, confusion matrices, prediction previews, and validation-check plots,
 - `models\` - saved model weights for every run (`<model>_trainXX_testYY.weights.h5`) and optional full models (`.keras`) when `--save-models` is used.
