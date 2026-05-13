@@ -235,49 +235,80 @@ W celu głębszej analizy popełnianych błędów oraz zidentyfikowania klas naj
     \caption{Macierz pomyłek dla najsłabszej konfiguracji modelu MobileNetV2.}
     \label{fig:cm_mob_worst}
 \end{figure}
-
 \subsection{Analiza krzywych ROC i wartości AUC}
 
 Istotnym kryterium oceny modeli wieloklasowych jest charakterystyka krzywej ROC (ang. \textit{Receiver Operating Characteristic}) oraz pole pod tą krzywą (AUC). Obliczenia przeprowadzono z wykorzystaniem podejścia Macro OVR (\textit{One-vs-Rest}) uśredniającego wagę każdej z klas w równym stopniu, oraz podejścia Micro, agregującego globalnie wkłady wszystkich próbek. 
 
-Jak wykazano w tabeli \ref{tab:best_results}, architektura ResNet50 osiągnęła wynik $\text{ROC AUC}_{\text{Macro}} = 0.9943$, co wskazuje na niemal perfekcyjną zdolność do separacji klas w optymalnych warunkach treningowych.
+Jak wykazano w tabeli \ref{tab:best_results}, architektura ResNet50 w optymalnej konfiguracji osiągnęła wynik $\text{ROC AUC}_{\text{Macro}} = 0.9943$, co wskazuje na niemal perfekcyjną zdolność do separacji klas. 
+
+W celu zobrazowania wpływu rozmiaru zbioru treningowego na pewność predykcji, na rysunku \ref{fig:roc_curves_combined} zestawiono optymalne krzywe ROC dla wszystkich trzech badanych architektur oraz, dla kontrastu, krzywą uzyskaną przez model ResNet50 trenowany na zaledwie 5\% danych.
 
 \begin{figure}[H]
     \centering
+    % Górny wiersz: ResNet50 (Najlepszy vs Najgorszy)
     \begin{subfigure}{0.48\textwidth}
-        \includegraphics[width=\linewidth]{img/roc_resnet50_train85_test15.png} % Z pliku
-        \caption{ResNet50 (Wariant train85\_test15)}
-        \label{fig:roc_resnet}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/roc_resnet50_train90_test10.png}
+        \caption{ResNet50 (Najlepszy: train90\_test10)}
+        \label{fig:roc_res_best}
     \end{subfigure}
     \hfill
     \begin{subfigure}{0.48\textwidth}
-        \includegraphics[width=\linewidth]{img/roc_placeholder.png} % PODMIEŃ ŚCIEŻKĘ
-        \caption{Porównanie krzywych dla pozostałych modeli}
-        \label{fig:roc_other}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/roc_resnet50_train5_test95.png}
+        \caption{ResNet50 (Najsłabszy: train5\_test95)}
+        \label{fig:roc_res_worst}
     \end{subfigure}
-    \caption{Krzywe ROC oraz wartości AUC (Micro/Macro) dla wybranych konfiguracji badanych modeli.}
-    \label{fig:roc_curves}
+    
+    \vspace{0.4cm}
+    % Dolny wiersz: Najlepsze warianty pozostałych modeli
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/roc_efficientnetb0_train95_test5.png}
+        \caption{EfficientNetB0 (Najlepszy: train95\_test5)}
+        \label{fig:roc_eff_best}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/roc_mobilenetv2_train90_test10.png}
+        \caption{MobileNetV2 (Najlepszy: train90\_test10)}
+        \label{fig:roc_mob_best}
+    \end{subfigure}
+    
+    \caption{Zestawienie krzywych ROC oraz wartości AUC dla optymalnych konfiguracji badanych modeli oraz wariantu ze skrajnie ograniczonym zbiorem treningowym.}
+    \label{fig:roc_curves_combined}
 \end{figure}
 
 
 \subsection{Wizualizacja predykcji dla najlepszych konfiguracji}
 
-Dla zobrazowania praktycznego działania wyuczonych sieci, na rysunku \ref{fig:predictions_grid} przedstawiono przykładowe predykcje obrazów ze zbioru testowego z nałożonymi etykietami rzeczywistymi (T: \textit{True}) oraz przewidywanymi przez model (P: \textit{Predicted}). Kolorem zielonym oznaczono poprawne klasyfikacje, natomiast kolorem czerwonym przypadki błędne.
+Dla zobrazowania praktycznego działania wyuczonych sieci, na poniższych rysunkach przedstawiono przykładowe predykcje obrazów ze zbioru testowego dla najlepszych konfiguracji każdego z badanych modeli. Na każdy kafelek nałożono etykietę rzeczywistą (T: \textit{True}) oraz etykietę przewidywaną przez model (P: \textit{Predicted}). Kolorem zielonym oznaczono poprawne klasyfikacje, natomiast kolorem czerwonym przypadki błędne.
 
+% ============================================================
+% PREDYKCJE - RESNET50
+% ============================================================
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{img/predictions_mobilenetv2_train95_test5.png} % Z pliku
-    \caption{Przykładowa siatka predykcji obrazów dla modelu MobileNetV2 (konfiguracja train95\_test5). Poprawne przypisania zaznaczono na zielono, błędy na czerwono.}
-    \label{fig:predictions_grid}
+    \includegraphics[width=0.85\textwidth]{../../outputs/split-impact-seed-42/plots/predictions_resnet50_train90_test10.png}
+    \caption{Przykładowa siatka predykcji dla najlepszej konfiguracji modelu \textbf{ResNet50} (wariant train90\_test10).}
+    \label{fig:predictions_resnet_best}
 \end{figure}
 
-Dla optymalnej konfiguracji modelu \textbf{ResNet50}, przykładowe zdjęcia zostały zaklasyfikowane w następujący sposób:
-
+% ============================================================
+% PREDYKCJE - EFFICIENTNETB0
+% ============================================================
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{img/predictions_resnet50_best_placeholder.png} % PODMIEŃ ŚCIEŻKĘ
-    \caption{Zestawienie predykcji obrazów dla najlepszej konfiguracji sieci ResNet50.}
-    \label{fig:predictions_resnet_best}
+    \includegraphics[width=0.85\textwidth]{../../outputs/split-impact-seed-42/plots/predictions_efficientnetb0_train95_test5.png}
+    \caption{Przykładowa siatka predykcji dla najlepszej konfiguracji modelu \textbf{EfficientNetB0} (wariant train95\_test5).}
+    \label{fig:predictions_effnet_best}
+\end{figure}
+
+% ============================================================
+% PREDYKCJE - MOBILENETV2
+% ============================================================
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{../../outputs/split-impact-seed-42/plots/predictions_mobilenetv2_train90_test10.png}
+    \caption{Przykładowa siatka predykcji dla najlepszej konfiguracji modelu \textbf{MobileNetV2} (wariant train90\_test10).}
+    \label{fig:predictions_mobilenet_best}
 \end{figure}
 
 \section{Analiza i wnioski}
