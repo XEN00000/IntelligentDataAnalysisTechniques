@@ -439,4 +439,283 @@ Uzupełnieniem oceny walidacyjnej jest analiza zdolności rozdzielczej klasyfika
     \label{fig:validation_roc_combined}
 \end{figure}
 
+
+\section{Wnioski}
+
+Na podstawie przeprowadzonych eksperymentów sformułowano następujące wnioski:
+
+\begin{enumerate}
+    \item \textbf{Zjawisko przeuczenia (overfitting) jest kluczowym ograniczeniem przy małej ilości danych treningowych.} Przy skrajnym podziale danych (5\% zbiór treningowy, 95\% testowy) wszystkie badane modele osiągały na zbiorze treningowym dokładność rzędu 99\%, podczas gdy na zbiorze walidacyjnym/testowym wartość ta spadała nawet do 75--78\%. Różnica między dokładnością treningową a walidacyjną ($\Delta$Acc) sięgała 24 punktów procentowych, a przyrost straty walidacyjnej ($\Delta$Loss) -- ponad 0.8. Oznacza to, że model zapamiętywał specyfikę nielicznych przykładów treningowych zamiast uczyć się ogólnych cech rozróżniających klasy.
+
+    \item \textbf{Zwiększanie ilości danych treningowych poprawia jakość modelu, ale z malejącym zyskiem.} Przejście z podziału 5/95 na 50/50 przyniosło znaczący wzrost dokładności (z ok.~78\% do ok.~85\% dla lżejszych architektur oraz z ok.~84\% do ok.~89\% dla ResNet50). Dalsze zwiększanie zbioru treningowego (powyżej 80\%) dawało już jedynie marginalne usprawnienia (poniżej 1 p.p.), co wskazuje na punkt nasycenia.
+
+    \item \textbf{ResNet50 okazał się najskuteczniejszą architekturą w~przeprowadzonych eksperymentach.} We wszystkich wariantach podziału danych model ResNet50 uzyskiwał najwyższe wartości dokładności, Macro F1-Score oraz ROC AUC. Najlepszy wynik to $Accuracy = 0.899$ i $Macro\ F1 = 0.899$ przy podziale train90/test10. Przewaga nad EfficientNetB0 i MobileNetV2 była szczególnie widoczna przy mniejszych zbiorach treningowych.
+
+    \item \textbf{EfficientNetB0 i MobileNetV2 osiągnęły porównywalną skuteczność}, z~niewielkim wskazaniem na EfficientNetB0. Oba modele, jako lżejsze architektury, były bardziej podatne na przeuczenie przy skrajnie ograniczonej ilości danych, ale przy większych zbiorach osiągały zadowalające wyniki (ok.~86\% Accuracy).
+
+    \item \textbf{Wysokie wartości ROC AUC nawet przy słabszej dokładności} potwierdzają, że modele poprawnie rangują prawdopodobieństwa przynależności do klas. Nawet w~najsłabszym wariancie (5\% danych treningowych) ROC AUC wyniosło powyżej 0.97, co oznacza, że błędne klasyfikacje wynikały głównie z~przypisywania zbliżonych prawdopodobieństw klasom wizualnie podobnym (np. \textit{cat}/\textit{dog}, \textit{automobile}/\textit{truck}).
+
+    \item \textbf{Transfer learning (wagi ImageNet) istotnie ogranicza przeuczenie} nawet przy małej ilości danych. Bez wag wstępnie wytrenowanych modele musiałyby uczyć się od zera, co przy 2250 próbkach (podział 5/95) prowadziłoby do jeszcze gorszych wyników generalizacji.
+
+    \item \textbf{Zalecany podział danych dla analizowanego problemu to 80--90\% treningowy / 10--20\% testowy.} Poniżej 50\% danych treningowych jakość predykcji istotnie spada, a powyżej 90\% -- zbiór testowy staje się zbyt mały do wiarygodnej oceny.
+\end{enumerate}
+
+\clearpage
+
+\appendix
+
+\section{Zestawienie wyników dla wszystkich wariantów podziału}
+\label{ad:additionalmatrixes}
+
+Tabela \ref{tab:all_results} przedstawia pełne wyniki klasyfikacji uzyskane przez trzy badane architektury (ResNet50, EfficientNetB0, MobileNetV2) dla dziewięciu wariantów podziału zbioru danych.
+
+\begin{table}[H]
+    \centering
+    \caption{Pełne zestawienie wyników eksperymentów (27 wariantów)}
+    \label{tab:all_results}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{llccccccccc}
+        \toprule
+        \textbf{Model} & \textbf{Split} & \textbf{Train} & \textbf{Val} & \textbf{Test} & \textbf{Acc} & \textbf{Macro Prec} & \textbf{Macro Recall} & \textbf{Macro F1} & \textbf{ROC AUC} & \textbf{ROC AUC} \\
+         & & \textbf{Samples} & \textbf{Samples} & \textbf{Samples} & & & & & \textbf{Macro} & \textbf{Micro} \\
+        \midrule
+        \multicolumn{11}{l}{\textbf{ResNet50}} \\
+        \midrule
+        & 5/95   & 2\,250  & 250   & 47\,500 & 0.8424 & 0.8468 & 0.8424 & 0.8423 & 0.9869 & 0.9872 \\
+        & 10/90  & 4\,500  & 500   & 45\,000 & 0.8601 & 0.8649 & 0.8601 & 0.8605 & 0.9898 & 0.9902 \\
+        & 20/80  & 9\,000  & 1\,000 & 40\,000 & 0.8727 & 0.8753 & 0.8727 & 0.8730 & 0.9914 & 0.9920 \\
+        & 50/50  & 22\,500 & 2\,500 & 25\,000 & 0.8870 & 0.8916 & 0.8870 & 0.8865 & 0.9937 & 0.9935 \\
+        & 70/30  & 31\,500 & 3\,500 & 15\,000 & 0.8896 & 0.8923 & 0.8896 & 0.8890 & 0.9940 & 0.9941 \\
+        & 80/20  & 36\,000 & 4\,000 & 10\,000 & 0.8959 & 0.8964 & 0.8959 & 0.8952 & 0.9943 & 0.9947 \\
+        & 85/15  & 38\,250 & 4\,250 & 7\,500  & 0.8957 & 0.8989 & 0.8957 & 0.8963 & 0.9940 & 0.9944 \\
+        & 90/10  & 40\,500 & 4\,500 & 5\,000  & \textbf{0.8990} & \textbf{0.9004} & \textbf{0.8990} & \textbf{0.8993} & \textbf{0.9943} & \textbf{0.9948} \\
+        & 95/5   & 42\,750 & 4\,750 & 2\,500  & 0.8920 & 0.8929 & 0.8920 & 0.8919 & 0.9940 & 0.9944 \\
+        \midrule
+        \multicolumn{11}{l}{\textbf{EfficientNetB0}} \\
+        \midrule
+        & 5/95   & 2\,250  & 250   & 47\,500 & 0.7801 & 0.7838 & 0.7801 & 0.7802 & 0.9749 & 0.9760 \\
+        & 10/90  & 4\,500  & 500   & 45\,000 & 0.8092 & 0.8119 & 0.8092 & 0.8094 & 0.9814 & 0.9824 \\
+        & 20/80  & 9\,000  & 1\,000 & 40\,000 & 0.8288 & 0.8297 & 0.8288 & 0.8281 & 0.9851 & 0.9859 \\
+        & 50/50  & 22\,500 & 2\,500 & 25\,000 & 0.8462 & 0.8470 & 0.8462 & 0.8457 & 0.9874 & 0.9882 \\
+        & 70/30  & 31\,500 & 3\,500 & 15\,000 & 0.8539 & 0.8549 & 0.8539 & 0.8538 & 0.9885 & 0.9895 \\
+        & 80/20  & 36\,000 & 4\,000 & 10\,000 & 0.8559 & 0.8573 & 0.8559 & 0.8560 & 0.9887 & 0.9897 \\
+        & 85/15  & 38\,250 & 4\,250 & 7\,500  & 0.8573 & 0.8587 & 0.8573 & 0.8574 & 0.9894 & 0.9904 \\
+        & 90/10  & 40\,500 & 4\,500 & 5\,000  & 0.8616 & 0.8645 & 0.8616 & 0.8621 & 0.9895 & 0.9904 \\
+        & 95/5   & 42\,750 & 4\,750 & 2\,500  & \textbf{0.8636} & \textbf{0.8651} & \textbf{0.8636} & \textbf{0.8636} & \textbf{0.9900} & \textbf{0.9911} \\
+        \midrule
+        \multicolumn{11}{l}{\textbf{MobileNetV2}} \\
+        \midrule
+        & 5/95   & 2\,250  & 250   & 47\,500 & 0.7782 & 0.7895 & 0.7782 & 0.7786 & 0.9761 & 0.9755 \\
+        & 10/90  & 4\,500  & 500   & 45\,000 & 0.8013 & 0.8125 & 0.8013 & 0.7999 & 0.9818 & 0.9802 \\
+        & 20/80  & 9\,000  & 1\,000 & 40\,000 & 0.8318 & 0.8351 & 0.8318 & 0.8310 & 0.9855 & 0.9858 \\
+        & 50/50  & 22\,500 & 2\,500 & 25\,000 & 0.8501 & 0.8498 & 0.8501 & 0.8487 & 0.9880 & 0.9887 \\
+        & 70/30  & 31\,500 & 3\,500 & 15\,000 & 0.8455 & 0.8496 & 0.8455 & 0.8455 & 0.9877 & 0.9882 \\
+        & 80/20  & 36\,000 & 4\,000 & 10\,000 & 0.8541 & 0.8537 & 0.8541 & 0.8529 & 0.9883 & 0.9894 \\
+        & 85/15  & 38\,250 & 4\,250 & 7\,500  & 0.8437 & 0.8464 & 0.8437 & 0.8434 & 0.9870 & 0.9879 \\
+        & 90/10  & 40\,500 & 4\,500 & 5\,000  & \textbf{0.8556} & \textbf{0.8561} & \textbf{0.8556} & \textbf{0.8547} & \textbf{0.9893} & \textbf{0.9903} \\
+        & 95/5   & 42\,750 & 4\,750 & 2\,500  & 0.8536 & 0.8588 & 0.8536 & 0.8524 & 0.9890 & 0.9892 \\
+        \bottomrule
+    \end{tabular}%
+    }
+\end{table}
+
+
+\section{Pełne zestawienie wyników walidacji i przeuczenia}
+\label{ad:overfitting_full}
+
+Tabela \ref{tab:overfitting_full} zawiera komplet danych z~walidacji modeli, w~tym wskaźniki przeuczenia ($\Delta$Acc, $\Delta$Loss) dla każdego wariantu podziału.
+
+\begin{table}[H]
+    \centering
+    \caption{Pełne wyniki walidacyjne i wskaźniki przeuczenia dla wszystkich wariantów}
+    \label{tab:overfitting_full}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{llcccccc}
+        \toprule
+        \textbf{Model} & \textbf{Split} & \textbf{Test Acc} & \textbf{Val Acc} & $\Delta$ \textbf{Acc} & \textbf{Test F1} & \textbf{Val F1} & $\Delta$ \textbf{F1} \\
+        \midrule
+        \multicolumn{8}{l}{\textbf{ResNet50}} \\
+        \midrule
+        & 5/95   & 0.8424 & 0.8560 & $+0.0136$ & 0.8423 & 0.8563 & $+0.0140$ \\
+        & 10/90  & 0.8601 & 0.8560 & $-0.0041$ & 0.8605 & 0.8561 & $-0.0045$ \\
+        & 20/80  & 0.8727 & 0.8930 & $+0.0203$ & 0.8730 & 0.8937 & $+0.0206$ \\
+        & 50/50  & 0.8870 & 0.8872 & $+0.0002$ & 0.8865 & 0.8869 & $+0.0005$ \\
+        & 70/30  & 0.8896 & 0.8940 & $+0.0044$ & 0.8890 & 0.8932 & $+0.0042$ \\
+        & 80/20  & 0.8959 & 0.8950 & $-0.0009$ & 0.8952 & 0.8942 & $-0.0010$ \\
+        & 85/15  & 0.8957 & 0.8993 & $+0.0036$ & 0.8963 & 0.9001 & $+0.0038$ \\
+        & 90/10  & 0.8990 & 0.9064 & $+0.0074$ & 0.8993 & 0.9067 & $+0.0074$ \\
+        & 95/5   & 0.8920 & 0.8981 & $+0.0061$ & 0.8919 & 0.8977 & $+0.0058$ \\
+        \midrule
+        \multicolumn{8}{l}{\textbf{EfficientNetB0}} \\
+        \midrule
+        & 5/95   & 0.7801 & 0.7800 & $-0.0001$ & 0.7802 & 0.7838 & $+0.0036$ \\
+        & 10/90  & 0.8092 & 0.8040 & $-0.0052$ & 0.8094 & 0.8044 & $-0.0050$ \\
+        & 20/80  & 0.8288 & 0.8630 & $+0.0343$ & 0.8281 & 0.8618 & $+0.0338$ \\
+        & 50/50  & 0.8462 & 0.8704 & $+0.0242$ & 0.8457 & 0.8697 & $+0.0240$ \\
+        & 70/30  & 0.8539 & 0.8549 & $+0.0010$ & 0.8538 & 0.8546 & $+0.0008$ \\
+        & 80/20  & 0.8559 & 0.8605 & $+0.0046$ & 0.8560 & 0.8602 & $+0.0043$ \\
+        & 85/15  & 0.8573 & 0.8605 & $+0.0031$ & 0.8574 & 0.8595 & $+0.0021$ \\
+        & 90/10  & 0.8616 & 0.8691 & $+0.0075$ & 0.8621 & 0.8685 & $+0.0064$ \\
+        & 95/5   & 0.8636 & 0.8625 & $-0.0011$ & 0.8636 & 0.8623 & $-0.0013$ \\
+        \midrule
+        \multicolumn{8}{l}{\textbf{MobileNetV2}} \\
+        \midrule
+        & 5/95   & 0.7782 & 0.7800 & $+0.0018$ & 0.7786 & 0.7793 & $+0.0007$ \\
+        & 10/90  & 0.8013 & 0.7920 & $-0.0093$ & 0.7999 & 0.7925 & $-0.0073$ \\
+        & 20/80  & 0.8318 & 0.8630 & $+0.0312$ & 0.8310 & 0.8628 & $+0.0317$ \\
+        & 50/50  & 0.8501 & 0.8584 & $+0.0083$ & 0.8487 & 0.8574 & $+0.0087$ \\
+        & 70/30  & 0.8455 & 0.8520 & $+0.0065$ & 0.8455 & 0.8521 & $+0.0066$ \\
+        & 80/20  & 0.8541 & 0.8490 & $-0.0051$ & 0.8529 & 0.8480 & $-0.0049$ \\
+        & 85/15  & 0.8437 & 0.8522 & $+0.0085$ & 0.8434 & 0.8516 & $+0.0082$ \\
+        & 90/10  & 0.8556 & 0.8622 & $+0.0066$ & 0.8547 & 0.8617 & $+0.0070$ \\
+        & 95/5   & 0.8536 & 0.8575 & $+0.0039$ & 0.8524 & 0.8569 & $+0.0045$ \\
+        \bottomrule
+    \end{tabular}%
+    }
+\end{table}
+
+
+\clearpage
+\section{Macierze pomyłek -- pozostałe warianty podziału}
+\label{ad:remaining_cm}
+
+W niniejszym załączniku zamieszczono macierze pomyłek dla wariantów podziału, które nie zostały zaprezentowane w~głównej części sprawozdania.
+
+% ============================================================
+% RESNET50 - remaining splits
+% ============================================================
+\subsection{ResNet50}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_resnet50_train10_test90.png}
+        \caption{train10/test90}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_resnet50_train20_test80.png}
+        \caption{train20/test80}
+    \end{subfigure}
+    \vspace{0.4cm}
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_resnet50_train50_test50.png}
+        \caption{train50/test50}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_resnet50_train70_test30.png}
+        \caption{train70/test30}
+    \end{subfigure}
+    \vspace{0.4cm}
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_resnet50_train80_test20.png}
+        \caption{train80/test20}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_resnet50_train85_test15.png}
+        \caption{train85/test15}
+    \end{subfigure}
+    \vspace{0.4cm}
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_resnet50_train95_test5.png}
+        \caption{train95/test5}
+    \end{subfigure}
+    \caption{Macierze pomyłek ResNet50 -- pozostałe warianty podziału zbioru danych.}
+    \label{fig:cm_resnet_remaining}
+\end{figure}
+
+\clearpage
+% ============================================================
+% EFFICIENTNETB0 - remaining splits
+% ============================================================
+\subsection{EfficientNetB0}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_efficientnetb0_train10_test90.png}
+        \caption{train10/test90}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_efficientnetb0_train20_test80.png}
+        \caption{train20/test80}
+    \end{subfigure}
+    \vspace{0.4cm}
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_efficientnetb0_train50_test50.png}
+        \caption{train50/test50}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_efficientnetb0_train70_test30.png}
+        \caption{train70/test30}
+    \end{subfigure}
+    \vspace{0.4cm}
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_efficientnetb0_train80_test20.png}
+        \caption{train80/test20}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_efficientnetb0_train85_test15.png}
+        \caption{train85/test15}
+    \end{subfigure}
+    \vspace{0.4cm}
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_efficientnetb0_train90_test10.png}
+        \caption{train90/test10}
+    \end{subfigure}
+    \caption{Macierze pomyłek EfficientNetB0 -- pozostałe warianty podziału zbioru danych.}
+    \label{fig:cm_effnet_remaining}
+\end{figure}
+
+% ============================================================
+% MOBILENETV2 - remaining splits
+% ============================================================
+\subsection{MobileNetV2}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_mobilenetv2_train10_test90.png}
+        \caption{train10/test90}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_mobilenetv2_train20_test80.png}
+        \caption{train20/test80}
+    \end{subfigure}
+    \vspace{0.4cm}
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_mobilenetv2_train50_test50.png}
+        \caption{train50/test50}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_mobilenetv2_train70_test30.png}
+        \caption{train70/test30}
+    \end{subfigure}
+    \vspace{0.4cm}
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_mobilenetv2_train80_test20.png}
+        \caption{train80/test20}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_mobilenetv2_train85_test15.png}
+        \caption{train85/test15}
+    \end{subfigure}
+    \vspace{0.4cm}
+    \begin{subfigure}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{../../outputs/split-impact-seed-42/plots/cm_mobilenetv2_train95_test5.png}
+        \caption{train95/test5}
+    \end{subfigure}
+    \caption{Macierze pomyłek MobileNetV2 -- pozostałe warianty podziału zbioru danych.}
+    \label{fig:cm_mobilenet_remaining}
+\end{figure}
+
+
 \end{document}
